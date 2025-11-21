@@ -2,15 +2,52 @@
 
 import { useSession, signOut } from "@/lib/authClient";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { RecordingControls } from "@/components/RecordingControls";
 import { useAudioRecorder } from "@/hooks/useAudioRecorder";
-import { FileAudio, History } from "lucide-react";
+import { useSocket } from "@/hooks/useSocket";
+import { FileAudio, History, Wifi, WifiOff } from "lucide-react";
 
 export default function Home() {
   const { data: session, isPending } = useSession();
   const router = useRouter();
   const [chunkCount, setChunkCount] = useState(0);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [bytesTransferred, setBytesTransferred] = useState(0);
+  const [avgLatency, setAvgLatency] = useState<number | null>(null);
+  const latencySum = useRef(0);
+  const latencyCount = useRef(0);
+
+  // Socket.io connection
+  const { isConnected, startSession, emitAudioChunk, stopSession, on, off } = useSocket({
+    autoConnect: true,
+  });
+
+  // Listen for chunk acknowledgments to calculate latency
+  useEffect(() => {
+    const handleChunkAck = (data: {
+      sessionId: string;
+      sequence: number;
+      timestamp: number;
+      receivedAt: number;
+      processingTime: number;
+      bytesReceived: number;
+    }) => {
+      const now = Date.now();
+      const roundTripLatency = now - data.timestamp;
+      
+      latencySum.current += roundTripLatency;
+      latencyCount.current += 1;
+      setAvgLatency(Math.round(latencySum.current / latencyCount.current));
+      
+      console.log(`Chunk ${data.sequence} acknowledged: latency=${roundTripLatency}ms, processing=${data.processingTime}ms`);
+    };
+
+    on("chunk-ack", handleChunkAck);
+    return () => {
+      off("chunk-ack", handleChunkAck);
+    };
+  }, [on, off]);
 
   useEffect(() => {
     if (!isPending && !session) {
@@ -19,21 +56,54 @@ export default function Home() {
   }, [session, isPending, router]);
 
   const recorder = useAudioRecorder({
-    chunkDuration: 10000, // 10 seconds
-    onChunk: (blob, sequence) => {
-      console.log(`Received audio chunk ${sequence}:`, {
-        size: blob.size,
-        type: blob.type,
+    chunkDuration: 30000, // 30 seconds
+    onChunk: (chunkData) => {
+      console.log(`Received audio chunk ${chunkData.sequence}:`, {
+        size: chunkData.blob.size,
+        type: chunkData.blob.type,
+        timestamp: chunkData.timestamp,
+        duration: chunkData.duration,
       });
-      setChunkCount(sequence + 1);
-      // TODO: Send chunk to server via Socket.io or API
+      setChunkCount(chunkData.sequence + 1);
+      setBytesTransferred((prev) => prev + chunkData.blob.size);
+
+      // Emit chunk via Socket.io if connected
+      if (isConnected && sessionId) {
+        emitAudioChunk(sessionId, chunkData.sequence, chunkData.timestamp, chunkData.blob);
+      } else {
+        console.warn("Socket not connected or no session ID, chunk not sent");
+      }
     },
-    onStart: () => {
-      console.log("Recording started");
-      setChunkCount(0);
+    onStart: async () => {
+      if (!session?.user?.id) {
+        console.error("No user session found");
+        return;
+      }
+
+      // Start a new session via Socket.io
+      const newSessionId = await startSession(
+        session.user.id,
+        `Recording ${new Date().toLocaleString()}`
+      );
+      
+      if (newSessionId) {
+        setSessionId(newSessionId);
+        setChunkCount(0);
+        setBytesTransferred(0);
+        latencySum.current = 0;
+        latencyCount.current = 0;
+        setAvgLatency(null);
+        console.log("Recording started with session ID:", newSessionId);
+      } else {
+        console.error("Failed to start session");
+      }
     },
     onStop: () => {
       console.log("Recording stopped");
+      if (sessionId) {
+        stopSession(sessionId);
+      }
+      setSessionId(null);
     },
     onError: (error) => {
       console.error("Recording error:", error);
@@ -66,6 +136,20 @@ export default function Home() {
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">ScribeAI</h1>
           </div>
           <div className="flex items-center gap-4">
+            {/* Socket.io Connection Indicator */}
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-100 dark:bg-gray-700">
+              {isConnected ? (
+                <>
+                  <Wifi className="w-4 h-4 text-green-500" />
+                  <span className="text-xs text-gray-700 dark:text-gray-300">Connected</span>
+                </>
+              ) : (
+                <>
+                  <WifiOff className="w-4 h-4 text-red-500" />
+                  <span className="text-xs text-gray-700 dark:text-gray-300">Disconnected</span>
+                </>
+              )}
+            </div>
             <button
               onClick={() => router.push("/sessions")}
               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all"
@@ -120,7 +204,7 @@ export default function Home() {
 
           {/* Stats */}
           {recorder.isRecording && (
-            <div className="grid grid-cols-2 gap-4 mb-8">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
               <div className="p-6 rounded-lg bg-white dark:bg-gray-800 shadow-md text-center">
                 <div className="text-3xl font-bold text-brand-500 mb-2">{chunkCount}</div>
                 <div className="text-sm text-gray-600 dark:text-gray-400">Chunks Recorded</div>
@@ -131,6 +215,18 @@ export default function Home() {
                   {(recorder.duration % 60).toString().padStart(2, "0")}
                 </div>
                 <div className="text-sm text-gray-600 dark:text-gray-400">Duration</div>
+              </div>
+              <div className="p-6 rounded-lg bg-white dark:bg-gray-800 shadow-md text-center">
+                <div className="text-3xl font-bold text-brand-500 mb-2">
+                  {(bytesTransferred / 1024 / 1024).toFixed(2)} MB
+                </div>
+                <div className="text-sm text-gray-600 dark:text-gray-400">Data Streamed</div>
+              </div>
+              <div className="p-6 rounded-lg bg-white dark:bg-gray-800 shadow-md text-center">
+                <div className="text-3xl font-bold text-brand-500 mb-2">
+                  {avgLatency !== null ? `${avgLatency}ms` : "—"}
+                </div>
+                <div className="text-sm text-gray-600 dark:text-gray-400">Avg Latency</div>
               </div>
             </div>
           )}

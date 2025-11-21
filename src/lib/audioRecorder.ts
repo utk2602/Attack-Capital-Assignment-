@@ -15,7 +15,7 @@
 export interface AudioRecorderOptions {
   /**
    * Duration of each audio chunk in milliseconds
-   * @default 10000 (10 seconds)
+   * @default 30000 (30 seconds)
    */
   chunkDuration?: number;
 
@@ -32,12 +32,20 @@ export interface AudioRecorderOptions {
   audioBitsPerSecond?: number;
 }
 
+export interface AudioChunkData {
+  blob: Blob;
+  sequence: number;
+  timestamp: number;
+  duration: number;
+}
+
 export interface AudioRecorderResult {
   stream: MediaStream;
   recorder: MediaRecorder;
   stop: () => void;
   pause: () => void;
   resume: () => void;
+  getRecordingStartTime: () => number;
 }
 
 /**
@@ -49,8 +57,8 @@ export interface AudioRecorderResult {
  *
  * @example
  * ```ts
- * const recorder = await startMicRecording((blob, seq) => {
- *   console.log(`Received chunk ${seq}, size: ${blob.size} bytes`);
+ * const recorder = await startMicRecording((chunkData) => {
+ *   console.log(`Chunk ${chunkData.sequence} at ${chunkData.timestamp}ms`);
  *   // Upload blob to server
  * });
  *
@@ -59,14 +67,18 @@ export interface AudioRecorderResult {
  * ```
  */
 export async function startMicRecording(
-  onChunk: (blob: Blob, sequence: number) => void,
+  onChunk: (chunkData: AudioChunkData) => void,
   options: AudioRecorderOptions = {}
 ): Promise<AudioRecorderResult> {
   const {
-    chunkDuration = 10000,
+    chunkDuration = 30000, // Default to 30 seconds
     mimeType = "audio/webm;codecs=opus",
     audioBitsPerSecond = 128000,
   } = options;
+
+  // Track recording start time for timestamping
+  const recordingStartTime = Date.now();
+  let sequence = 0;
 
   // Request microphone access
   let stream: MediaStream;
@@ -99,12 +111,16 @@ export async function startMicRecording(
     audioBitsPerSecond,
   });
 
-  let sequence = 0;
-
   // Handle data available (chunk ready)
   recorder.ondataavailable = (event) => {
     if (event.data.size > 0) {
-      onChunk(event.data, sequence++);
+      const timestamp = Date.now() - recordingStartTime;
+      onChunk({
+        blob: event.data,
+        sequence: sequence++,
+        timestamp,
+        duration: chunkDuration,
+      });
     }
   };
 
@@ -136,6 +152,7 @@ export async function startMicRecording(
         recorder.resume();
       }
     },
+    getRecordingStartTime: () => recordingStartTime,
   };
 }
 
@@ -151,8 +168,8 @@ export async function startMicRecording(
  * @example
  * ```ts
  * try {
- *   const recorder = await startTabRecording((blob, seq) => {
- *     console.log(`Received tab audio chunk ${seq}`);
+ *   const recorder = await startTabRecording((chunkData) => {
+ *     console.log(`Tab chunk ${chunkData.sequence} at ${chunkData.timestamp}ms`);
  *   });
  * } catch (error) {
  *   console.error("Failed to start tab recording:", error);
@@ -160,14 +177,18 @@ export async function startMicRecording(
  * ```
  */
 export async function startTabRecording(
-  onChunk: (blob: Blob, sequence: number) => void,
+  onChunk: (chunkData: AudioChunkData) => void,
   options: AudioRecorderOptions = {}
 ): Promise<AudioRecorderResult> {
   const {
-    chunkDuration = 10000,
+    chunkDuration = 30000, // Default to 30 seconds
     mimeType = "audio/webm;codecs=opus",
     audioBitsPerSecond = 128000,
   } = options;
+
+  // Track recording start time for timestamping
+  const recordingStartTime = Date.now();
+  let sequence = 0;
 
   let stream: MediaStream;
 
@@ -211,12 +232,16 @@ export async function startTabRecording(
     audioBitsPerSecond,
   });
 
-  let sequence = 0;
-
   // Handle data available (chunk ready)
   recorder.ondataavailable = (event) => {
     if (event.data.size > 0) {
-      onChunk(event.data, sequence++);
+      const timestamp = Date.now() - recordingStartTime;
+      onChunk({
+        blob: event.data,
+        sequence: sequence++,
+        timestamp,
+        duration: chunkDuration,
+      });
     }
   };
 
@@ -258,6 +283,7 @@ export async function startTabRecording(
         recorder.resume();
       }
     },
+    getRecordingStartTime: () => recordingStartTime,
   };
 }
 

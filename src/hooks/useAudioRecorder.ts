@@ -6,6 +6,7 @@ import {
   startTabRecording,
   AudioRecorderResult,
   AudioRecorderOptions,
+  AudioChunkData,
 } from "@/lib/audioRecorder";
 
 export type RecordingStatus = "idle" | "recording" | "paused" | "processing";
@@ -15,7 +16,7 @@ interface UseAudioRecorderOptions extends AudioRecorderOptions {
   /**
    * Callback fired when a new audio chunk is ready
    */
-  onChunk?: (blob: Blob, sequence: number) => void;
+  onChunk?: (chunkData: AudioChunkData) => void;
 
   /**
    * Callback fired when recording starts
@@ -80,8 +81,8 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}) {
       setStatus("recording");
       setDuration(0);
 
-      const handleChunk = (blob: Blob, sequence: number) => {
-        onChunk?.(blob, sequence);
+      const handleChunk = (chunkData: AudioChunkData) => {
+        onChunk?.(chunkData);
       };
 
       const recorder =
