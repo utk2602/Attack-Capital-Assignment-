@@ -35,12 +35,14 @@ export default function Home() {
     }) => {
       const now = Date.now();
       const roundTripLatency = now - data.timestamp;
-      
+
       latencySum.current += roundTripLatency;
       latencyCount.current += 1;
       setAvgLatency(Math.round(latencySum.current / latencyCount.current));
-      
-      console.log(`Chunk ${data.sequence} acknowledged: latency=${roundTripLatency}ms, processing=${data.processingTime}ms`);
+
+      console.log(
+        `Chunk ${data.sequence} acknowledged: latency=${roundTripLatency}ms, processing=${data.processingTime}ms`
+      );
     };
 
     on("chunk-ack", handleChunkAck);
@@ -85,7 +87,7 @@ export default function Home() {
         session.user.id,
         `Recording ${new Date().toLocaleString()}`
       );
-      
+
       if (newSessionId) {
         setSessionId(newSessionId);
         setChunkCount(0);

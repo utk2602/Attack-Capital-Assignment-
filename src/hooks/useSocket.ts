@@ -82,7 +82,7 @@ export function useSocket(options: UseSocketOptions = {}) {
 
   /**
    * Start a new recording session
-   * 
+   *
    * @param userId - User ID
    * @param title - Session title
    * @returns Promise with session ID
@@ -115,7 +115,7 @@ export function useSocket(options: UseSocketOptions = {}) {
 
   /**
    * Emit an audio chunk with binary data and metadata
-   * 
+   *
    * @param sessionId - Recording session ID
    * @param sequence - Chunk sequence number
    * @param timestamp - Timestamp in ms from recording start
@@ -152,7 +152,7 @@ export function useSocket(options: UseSocketOptions = {}) {
 
   /**
    * Stop a recording session
-   * 
+   *
    * @param sessionId - Session ID
    */
   const stopSession = useCallback((sessionId: string) => {
