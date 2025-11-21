@@ -1,4 +1,7 @@
 import { Server, Socket } from "socket.io";
+import { PrismaClient } from "@prisma/client";
+
+const prisma = new PrismaClient();
 
 /**
  * Setup Socket.io event handlers for recording sessions
@@ -42,23 +45,60 @@ export function setupRecordingSockets(io: Server, socket: Socket) {
   });
 
   /**
+   * Handle chunk stored locally
+   */
+  socket.on(
+    "chunk-stored",
+    async (data: { sessionId: string; seq: number; path: string; durationMs: number }) => {
+      try {
+        console.log(`💾 Chunk stored: session=${data.sessionId}, seq=${data.seq}`);
+
+        // Create TranscriptChunk in database
+        await prisma.transcriptChunk.create({
+          data: {
+            sessionId: data.sessionId,
+            seq: data.seq,
+            audioPath: data.path,
+            durationMs: data.durationMs,
+            status: "uploaded",
+          },
+        });
+
+        // TODO: Trigger transcription processing (Gemini API)
+        socket.emit("chunk-processed", { sessionId: data.sessionId, seq: data.seq });
+      } catch (error) {
+        console.error("Error storing chunk metadata:", error);
+        socket.emit("error", { message: "Failed to store chunk metadata" });
+      }
+    }
+  );
+
+  /**
    * Handle stop recording event
    */
-  socket.on("stop-recording", (data: { sessionId: string }) => {
-    console.log(`⏹️ Recording stopped for session: ${data?.sessionId}`);
-    socket.emit("status", { status: "processing", sessionId: data?.sessionId });
-    
-    // TODO: Finalize Gemini stream and generate summary
-    // Simulate processing delay
-    setTimeout(() => {
-      socket.emit("status", { status: "completed", sessionId: data?.sessionId });
-      socket.emit("transcript-ready", { 
-        sessionId: data?.sessionId,
-        summary: "Meeting summary placeholder: This is where the AI-generated summary will appear with key points, action items, and decisions.",
-        transcript: "Full transcript placeholder: This will contain the complete transcription of the audio session.",
-        duration: 0,
-        createdAt: new Date().toISOString(),
-      });
-    }, 2000);
+  socket.on("stop-recording", async (data: { sessionId: string }) => {
+    try {
+      console.log(`⏹️ Recording stopped for session: ${data?.sessionId}`);
+      socket.emit("status", { status: "processing", sessionId: data?.sessionId });
+
+      // TODO: Update session status in database
+      // TODO: Aggregate all chunks, transcribe with Gemini, generate summary
+      // Simulate processing delay
+      setTimeout(() => {
+        socket.emit("status", { status: "completed", sessionId: data?.sessionId });
+        socket.emit("transcript-ready", {
+          sessionId: data?.sessionId,
+          summary:
+            "Meeting summary placeholder: This is where the AI-generated summary will appear with key points, action items, and decisions.",
+          transcript:
+            "Full transcript placeholder: This will contain the complete transcription of the audio session.",
+          duration: 0,
+          createdAt: new Date().toISOString(),
+        });
+      }, 2000);
+    } catch (error) {
+      console.error("Error stopping recording:", error);
+      socket.emit("error", { message: "Failed to stop recording" });
+    }
   });
 }

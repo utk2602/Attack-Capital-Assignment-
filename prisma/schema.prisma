@@ -1,0 +1,95 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String             @id @default(uuid())
+  email             String             @unique
+  emailVerified     Boolean            @default(false)
+  name              String?
+  image             String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @default(now()) @updatedAt
+  recordingSessions RecordingSession[]
+  accounts          Account[]
+  sessions          Session[]
+  verifications     Verification[]
+}
+
+model Account {
+  id                String   @id @default(uuid())
+  userId            String
+  accountId         String
+  providerId        String
+  accessToken       String?
+  refreshToken      String?
+  idToken           String?
+  expiresAt         DateTime?
+  password          String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, accountId])
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  userId    String
+  expiresAt DateTime
+  token     String   @unique
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Verification {
+  id         String   @id @default(uuid())
+  userId     String
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([identifier, value])
+}
+
+model RecordingSession {
+  id            String            @id @default(uuid())
+  userId        String
+  user          User              @relation(fields: [userId], references: [id])
+  title         String?
+  status        String            @default("recording") // recording, paused, processing, completed
+  startedAt     DateTime          @default(now())
+  endedAt       DateTime?
+  transcript    String?           // aggregated final transcript (nullable)
+  summaryJSON   Json?             // store summary as JSON
+  chunks        TranscriptChunk[]
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+}
+
+model TranscriptChunk {
+  id         String           @id @default(uuid())
+  sessionId  String
+  session    RecordingSession @relation(fields: [sessionId], references: [id])
+  seq        Int
+  audioPath  String           // local file path or S3/cloud URL
+  durationMs Int
+  text       String?
+  speaker    String?
+  confidence Float?
+  status     String           @default("uploaded") // uploaded, transcribed, failed
+  createdAt  DateTime         @default(now())
+
+  @@unique([sessionId, seq])
+}
