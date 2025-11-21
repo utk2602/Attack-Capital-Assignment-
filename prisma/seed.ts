@@ -3,7 +3,7 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log("seeding database...");//wanted to see if seeding works 
+  console.log("seeding database..."); //wanted to see if seeding works
 
   const user = await prisma.user.upsert({
     where: { email: "test@scribeai.com" },
@@ -15,7 +15,7 @@ async function main() {
 
   console.log("✅ Created test user:", user);
 
-  const session = await prisma.session.create({
+  const recordingSession = await prisma.recordingSession.create({
     data: {
       userId: user.id,
       title: "Sample Meeting - Product Roadmap Discussion",
@@ -40,14 +40,14 @@ async function main() {
     },
   });
 
-  console.log("sample session:", session);
+  console.log("✅ Created sample recording session:", recordingSession);
 
   for (let i = 0; i < 3; i++) {
     await prisma.transcriptChunk.create({
       data: {
-        sessionId: session.id,
+        sessionId: recordingSession.id,
         seq: i,
-        audioPath: `./storage/audio-chunks/${session.id}/${i}-sample.webm`,
+        audioPath: `./storage/audio-chunks/${recordingSession.id}/${i}-sample.webm`,
         durationMs: 30000,
         text: `Sample transcript chunk ${i + 1}`,
         speaker: i % 2 === 0 ? "Speaker A" : "Speaker B",
@@ -57,8 +57,8 @@ async function main() {
     });
   }
 
-  console.log("Created sample transcript chunks");
-  console.log("\nSeeding completed successfully!");
+  console.log("✅ Created sample transcript chunks");
+  console.log("\n🎉 Seeding completed successfully!");
 }
 
 main()
