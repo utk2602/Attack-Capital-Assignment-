@@ -1,5 +1,4 @@
 "use client";
-
 import { useSession, signOut } from "@/lib/authClient";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
@@ -7,7 +6,6 @@ import { RecordingControls } from "@/components/RecordingControls";
 import { useAudioRecorder } from "@/hooks/useAudioRecorder";
 import { useSocket } from "@/hooks/useSocket";
 import { FileAudio, History, Wifi, WifiOff } from "lucide-react";
-
 export default function Home() {
   const { data: session, isPending } = useSession();
   const router = useRouter();
@@ -15,15 +13,27 @@ export default function Home() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [bytesTransferred, setBytesTransferred] = useState(0);
   const [avgLatency, setAvgLatency] = useState<number | null>(null);
+  const [lastLatency, setLastLatency] = useState<number | null>(null);
   const latencySum = useRef(0);
   const latencyCount = useRef(0);
 
-  // Socket.io connection
-  const { isConnected, startSession, emitAudioChunk, stopSession, on, off } = useSocket({
+  // Socket connection
+  const {
+    isConnected,
+    queuedChunks,
+    failedChunks,
+    startSession,
+    emitAudioChunk,
+    pauseSession,
+    resumeSession,
+    stopSession,
+    on,
+    off,
+  } = useSocket({
     autoConnect: true,
   });
 
-  // Listen for chunk acknowledgments to calculate latency
+  // Listening to chhunks for calculation of latency
   useEffect(() => {
     const handleChunkAck = (data: {
       sessionId: string;
@@ -36,6 +46,7 @@ export default function Home() {
       const now = Date.now();
       const roundTripLatency = now - data.timestamp;
 
+      setLastLatency(roundTripLatency);
       latencySum.current += roundTripLatency;
       latencyCount.current += 1;
       setAvgLatency(Math.round(latencySum.current / latencyCount.current));
@@ -58,7 +69,7 @@ export default function Home() {
   }, [session, isPending, router]);
 
   const recorder = useAudioRecorder({
-    chunkDuration: 30000, // 30 seconds
+    chunkDuration: 30000,
     onChunk: (chunkData) => {
       console.log(`Received audio chunk ${chunkData.sequence}:`, {
         size: chunkData.blob.size,
@@ -69,11 +80,10 @@ export default function Home() {
       setChunkCount(chunkData.sequence + 1);
       setBytesTransferred((prev) => prev + chunkData.blob.size);
 
-      // Emit chunk via Socket.io if connected
-      if (isConnected && sessionId) {
+      if (sessionId) {
         emitAudioChunk(sessionId, chunkData.sequence, chunkData.timestamp, chunkData.blob);
       } else {
-        console.warn("Socket not connected or no session ID, chunk not sent");
+        console.warn("No session ID, chunk not sent");
       }
     },
     onStart: async () => {
@@ -82,7 +92,6 @@ export default function Home() {
         return;
       }
 
-      // Start a new session via Socket.io
       const newSessionId = await startSession(
         session.user.id,
         `Recording ${new Date().toLocaleString()}`
@@ -95,9 +104,22 @@ export default function Home() {
         latencySum.current = 0;
         latencyCount.current = 0;
         setAvgLatency(null);
+        setLastLatency(null);
         console.log("Recording started with session ID:", newSessionId);
       } else {
         console.error("Failed to start session");
+      }
+    },
+    onPause: () => {
+      console.log("Recording paused");
+      if (sessionId) {
+        pauseSession(sessionId);
+      }
+    },
+    onResume: () => {
+      console.log("Recording resumed");
+      if (sessionId) {
+        resumeSession(sessionId);
       }
     },
     onStop: () => {
@@ -130,8 +152,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
-      {/* Navigation */}
-      <nav className="bg-white dark:bg-gray-800 shadow-sm">
+\      <nav className="bg-white dark:bg-gray-800 shadow-sm">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
             <FileAudio className="w-8 h-8 text-brand-500" />
@@ -170,10 +191,8 @@ export default function Home() {
         </div>
       </nav>
 
-      {/* Main Content */}
-      <main className="container mx-auto px-4 py-12">
+\      <main className="container mx-auto px-4 py-12">
         <div className="max-w-4xl mx-auto">
-          {/* Header */}
           <div className="text-center mb-12">
             <h2 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
               AI-Powered Audio Transcription
@@ -183,7 +202,6 @@ export default function Home() {
             </p>
           </div>
 
-          {/* Recording Controls */}
           <div className="mb-8">
             <RecordingControls
               status={recorder.status}
@@ -197,44 +215,119 @@ export default function Home() {
             />
           </div>
 
-          {/* Error Display */}
           {recorder.error && (
             <div className="mb-6 p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
               <p className="text-red-800 dark:text-red-300 font-medium">Error: {recorder.error}</p>
             </div>
           )}
 
-          {/* Stats */}
           {recorder.isRecording && (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-              <div className="p-6 rounded-lg bg-white dark:bg-gray-800 shadow-md text-center">
-                <div className="text-3xl font-bold text-brand-500 mb-2">{chunkCount}</div>
-                <div className="text-sm text-gray-600 dark:text-gray-400">Chunks Recorded</div>
-              </div>
-              <div className="p-6 rounded-lg bg-white dark:bg-gray-800 shadow-md text-center">
-                <div className="text-3xl font-bold text-brand-500 mb-2">
-                  {Math.floor(recorder.duration / 60)}:
-                  {(recorder.duration % 60).toString().padStart(2, "0")}
+            <>
+              {/* Primary Stats */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                <div className="p-6 rounded-lg bg-white dark:bg-gray-800 shadow-md text-center">
+                  <div className="text-3xl font-bold text-brand-500 mb-2">{chunkCount}</div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400">Chunks Recorded</div>
                 </div>
-                <div className="text-sm text-gray-600 dark:text-gray-400">Duration</div>
-              </div>
-              <div className="p-6 rounded-lg bg-white dark:bg-gray-800 shadow-md text-center">
-                <div className="text-3xl font-bold text-brand-500 mb-2">
-                  {(bytesTransferred / 1024 / 1024).toFixed(2)} MB
+                <div className="p-6 rounded-lg bg-white dark:bg-gray-800 shadow-md text-center">
+                  <div className="text-3xl font-bold text-brand-500 mb-2">
+                    {Math.floor(recorder.duration / 60)}:
+                    {(recorder.duration % 60).toString().padStart(2, "0")}
+                  </div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400">Duration</div>
                 </div>
-                <div className="text-sm text-gray-600 dark:text-gray-400">Data Streamed</div>
-              </div>
-              <div className="p-6 rounded-lg bg-white dark:bg-gray-800 shadow-md text-center">
-                <div className="text-3xl font-bold text-brand-500 mb-2">
-                  {avgLatency !== null ? `${avgLatency}ms` : "—"}
+                <div className="p-6 rounded-lg bg-white dark:bg-gray-800 shadow-md text-center">
+                  <div className="text-3xl font-bold text-brand-500 mb-2">
+                    {(bytesTransferred / 1024 / 1024).toFixed(2)} MB
+                  </div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400">Data Streamed</div>
                 </div>
-                <div className="text-sm text-gray-600 dark:text-gray-400">Avg Latency</div>
+                <div className="p-6 rounded-lg bg-white dark:bg-gray-800 shadow-md text-center">
+                  <div className="text-3xl font-bold text-brand-500 mb-2">
+                    {avgLatency !== null ? `${avgLatency}ms` : "—"}
+                  </div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400">Avg Latency</div>
+                </div>
               </div>
-            </div>
+
+              {/* Secondary Stats - Network & Queue */}
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
+                <div className="p-4 rounded-lg bg-white dark:bg-gray-800 shadow-md">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Last Latency
+                    </span>
+                    <span
+                      className={`text-sm font-bold ${
+                        lastLatency !== null && lastLatency < 100
+                          ? "text-green-500"
+                          : lastLatency !== null && lastLatency < 300
+                            ? "text-yellow-500"
+                            : "text-red-500"
+                      }`}
+                    >
+                      {lastLatency !== null ? `${lastLatency}ms` : "—"}
+                    </span>
+                  </div>
+                  <div className="h-1 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full transition-all duration-300 ${
+                        lastLatency !== null && lastLatency < 100
+                          ? "bg-green-500"
+                          : lastLatency !== null && lastLatency < 300
+                            ? "bg-yellow-500"
+                            : "bg-red-500"
+                      }`}
+                      style={{
+                        width:
+                          lastLatency !== null
+                            ? `${Math.min((lastLatency / 500) * 100, 100)}%`
+                            : "0%",
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-lg bg-white dark:bg-gray-800 shadow-md">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Queued Chunks
+                    </span>
+                    <span
+                      className={`text-sm font-bold ${
+                        queuedChunks === 0 ? "text-green-500" : "text-orange-500"
+                      }`}
+                    >
+                      {queuedChunks}
+                    </span>
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                    {queuedChunks > 0 ? "Retrying..." : "All sent ✓"}
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-lg bg-white dark:bg-gray-800 shadow-md">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Failed Chunks
+                    </span>
+                    <span
+                      className={`text-sm font-bold ${
+                        failedChunks === 0 ? "text-green-500" : "text-red-500"
+                      }`}
+                    >
+                      {failedChunks}
+                    </span>
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                    {failedChunks > 0 ? "Check connection" : "No errors ✓"}
+                  </div>
+                </div>
+              </div>
+            </>
           )}
 
-          {/* Features */}
-          <div className="grid md:grid-cols-3 gap-6 mt-12">
+\          <div className="grid md:grid-cols-3 gap-6 mt-12">
             <div className="p-6 rounded-lg bg-white dark:bg-gray-800 shadow-md">
               <div className="w-12 h-12 rounded-full bg-brand-100 dark:bg-brand-900 flex items-center justify-center mb-4">
                 <FileAudio className="w-6 h-6 text-brand-500" />

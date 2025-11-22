@@ -5,10 +5,9 @@ import * as path from "path";
 
 const prisma = new PrismaClient();
 
-// Storage directory for audio chunks
+
 const STORAGE_DIR = path.join(process.cwd(), "storage", "audio-chunks");
 
-// Ensure storage directory exists
 if (!fs.existsSync(STORAGE_DIR)) {
   fs.mkdirSync(STORAGE_DIR, { recursive: true });
 }
@@ -29,13 +28,11 @@ export function setupRecordingSockets(io: Server, socket: Socket) {
       console.log(`🎙️ Starting session: ${data.sessionId}, source: ${data.source}`);
 
       try {
-        // Create session directory
         const sessionDir = path.join(STORAGE_DIR, data.sessionId);
         if (!fs.existsSync(sessionDir)) {
           fs.mkdirSync(sessionDir, { recursive: true });
         }
 
-        // Create RecordingSession in database
         const session = await prisma.recordingSession.create({
           data: {
             id: data.sessionId,
@@ -46,7 +43,7 @@ export function setupRecordingSockets(io: Server, socket: Socket) {
           },
         });
 
-        console.log(`✅ Session created in DB: ${session.id}`);
+        console.log(`Session created in DB: ${session.id}`);//db creation check kr rha hoon yaha pr 
 
         socket.emit("session-started", {
           sessionId: session.id,
@@ -54,7 +51,7 @@ export function setupRecordingSockets(io: Server, socket: Socket) {
           startedAt: session.startedAt,
         });
       } catch (error) {
-        console.error("❌ Failed to create session:", error);
+        console.error("Failed to create session:", error);
         socket.emit("session-error", {
           sessionId: data.sessionId,
           error: "Failed to create session",
@@ -80,29 +77,24 @@ export function setupRecordingSockets(io: Server, socket: Socket) {
       const chunkStartTime = Date.now();
 
       try {
-        // Convert ArrayBuffer to Buffer
         const audioBuffer = Buffer.from(data.audio);
 
-        // Generate filename: session_seq.webm
         const filename = `${data.sessionId}_${data.sequence.toString().padStart(4, "0")}.webm`;
         const sessionDir = path.join(STORAGE_DIR, data.sessionId);
         const filePath = path.join(sessionDir, filename);
 
-        // Ensure session directory exists
         if (!fs.existsSync(sessionDir)) {
           fs.mkdirSync(sessionDir, { recursive: true });
         }
 
-        // Write audio chunk to disk
         await fs.promises.writeFile(filePath, audioBuffer);
 
-        // Store chunk metadata in database
         const chunk = await prisma.transcriptChunk.create({
           data: {
             sessionId: data.sessionId,
             seq: data.sequence,
             audioPath: filePath,
-            durationMs: 30000, // 30 seconds
+            durationMs: 30000, 
             status: "uploaded",
           },
         });
@@ -110,10 +102,9 @@ export function setupRecordingSockets(io: Server, socket: Socket) {
         const processingTime = Date.now() - chunkStartTime;
 
         console.log(
-          `📦 Chunk ${data.sequence} saved: ${(data.size / 1024).toFixed(2)} KB (${processingTime}ms)`
+          `Chunk ${data.sequence} saved: ${(data.size / 1024).toFixed(2)} KB (${processingTime}ms)`
         );
 
-        // Send acknowledgment back to client
         socket.emit("chunk-ack", {
           sessionId: data.sessionId,
           sequence: data.sequence,
@@ -124,27 +115,51 @@ export function setupRecordingSockets(io: Server, socket: Socket) {
           chunkId: chunk.id,
         });
 
-        // TODO: Send to Gemini API for transcription
       } catch (error) {
-        console.error(`❌ Failed to save chunk ${data.sequence}:`, error);
+        console.error(`failed chunk save ${data.sequence}:`, error);
         socket.emit("chunk-error", {
           sessionId: data.sessionId,
           sequence: data.sequence,
-          error: "Failed to save chunk",
+          error: "failed chunk save",
         });
       }
     }
   );
 
-  /**
-   * Handle stop recording event
-   * Updates session status to completed
-   */
-  socket.on("stop-session", async (data: { sessionId: string }) => {
-    console.log(`⏹️ Stopping session: ${data.sessionId}`);
+  
+  socket.on("pause-session", async (data: { sessionId: string; pausedAt: number }) => {
+    console.log(`Session paused: ${data.sessionId} at ${new Date(data.pausedAt).toISOString()}`);
 
     try {
-      // Update session status
+
+      socket.emit("session-paused", {
+        sessionId: data.sessionId,
+        pausedAt: data.pausedAt,
+      });
+    } catch (error) {
+      console.error("session paude error", error);
+    }
+  });
+  socket.on("resume-session", async (data: { sessionId: string; resumedAt: number }) => {
+    console.log(
+      `▶️ Session resumed: ${data.sessionId} at ${new Date(data.resumedAt).toISOString()}`
+    );
+
+    try {
+      socket.emit("session-resumed", {
+        sessionId: data.sessionId,
+        resumedAt: data.resumedAt,
+      });
+    } catch (error) {
+      console.error("failed to resume session", error);
+    }
+  });
+
+
+  socket.on("stop-session", async (data: { sessionId: string }) => {
+    console.log(`Stopping session: ${data.sessionId}`);
+
+    try {
       const session = await prisma.recordingSession.update({
         where: { id: data.sessionId },
         data: {
@@ -153,7 +168,7 @@ export function setupRecordingSockets(io: Server, socket: Socket) {
         },
       });
 
-      console.log(`✅ Session completed: ${session.id}`);
+      console.log(`Session sorted: ${session.id}`);
 
       socket.emit("session-stopped", {
         sessionId: session.id,
@@ -161,7 +176,7 @@ export function setupRecordingSockets(io: Server, socket: Socket) {
         endedAt: session.endedAt,
       });
     } catch (error) {
-      console.error("❌ Failed to stop session:", error);
+      console.error("Failed to stop session:", error);
       socket.emit("session-error", {
         sessionId: data.sessionId,
         error: "Failed to stop session",
@@ -169,10 +184,7 @@ export function setupRecordingSockets(io: Server, socket: Socket) {
     }
   });
 
-  /**
-   * Handle client disconnect
-   */
   socket.on("disconnect", () => {
-    console.log("🔌 Client disconnected:", socket.id);
+    console.log("disconnected:", socket.id);
   });
 }

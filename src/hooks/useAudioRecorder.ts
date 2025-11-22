@@ -24,6 +24,16 @@ interface UseAudioRecorderOptions extends AudioRecorderOptions {
   onStart?: () => void;
 
   /**
+   * Callback fired when recording is paused
+   */
+  onPause?: () => void;
+
+  /**
+   * Callback fired when recording is resumed
+   */
+  onResume?: () => void;
+
+  /**
    * Callback fired when recording stops
    */
   onStop?: () => void;
@@ -43,7 +53,7 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}) {
   const recorderRef = useRef<AudioRecorderResult | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const { onChunk, onStart, onStop, onError, ...recorderOptions } = options;
+  const { onChunk, onStart, onPause, onResume, onStop, onError, ...recorderOptions } = options;
 
   // Cleanup on unmount
   useEffect(() => {
@@ -107,8 +117,9 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}) {
       recorderRef.current.pause();
       setStatus("paused");
       stopTimer();
+      onPause?.();
     }
-  }, [status, stopTimer]);
+  }, [status, stopTimer, onPause]);
 
   // Resume recording
   const resume = useCallback(() => {
@@ -116,8 +127,9 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}) {
       recorderRef.current.resume();
       setStatus("recording");
       startTimer();
+      onResume?.();
     }
-  }, [status, startTimer]);
+  }, [status, startTimer, onResume]);
 
   // Stop recording
   const stop = useCallback(() => {

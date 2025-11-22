@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Global tweaks */
+
 html,
 body {
   height: 100%;
