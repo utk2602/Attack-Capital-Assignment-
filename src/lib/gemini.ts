@@ -2,8 +2,6 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import fs from "fs/promises";
 import path from "path";
 
-
-
 interface TranscriptionResult {
   text: string;
   confidence?: number;
@@ -272,40 +270,93 @@ class GeminiTranscriptionService {
     }
   }
 
-
   private buildTranscriptionPrompt(options: TranscriptionOptions): string {
-    const parts: string[] = [
-      "You are a professional transcription assistant. Your task is to:",
-      "1. Transcribe the audio content accurately with proper punctuation and capitalization",
-      "2. Preserve natural speech patterns and filler words when contextually important",
-      "3. Format the output as clean, readable text",
-    ];
-
     if (options.enableDiarization) {
-      parts.push(
-        "4. Identify distinct speakers and label them as [Speaker 1], [Speaker 2], etc.",
-        "5. Use the format: [Speaker]: Text"
-      );
+      return this.buildDiarizationPrompt(options);
     }
+
+    // Optimized prompt for single-chunk transcription without diarization
+    const parts: string[] = [
+      "You are a highly accurate speech-to-text assistant.",
+      "",
+      "Instructions:",
+      "- Transcribe the audio word-for-word with correct punctuation and capitalization",
+      "- Output ONLY the transcript text",
+      "- Do not add commentary, explanations, or hallucinate content not in the audio",
+      "- Preserve natural speech including filler words (um, uh) when present",
+      "- Use proper sentence structure and paragraph breaks for readability",
+    ];
 
     if (options.previousContext) {
       parts.push(
         "",
-        `Previous context for continuity: "${options.previousContext}"`,
+        "Context from previous audio:",
+        `\"${options.previousContext}\"`,
         "",
-        "Continue transcribing from where the context left off."
+        "Continue transcribing seamlessly from this context."
       );
     }
 
     if (options.languageHint) {
-      parts.push("", `Expected language: ${options.languageHint}`);
+      parts.push("", `Language: ${options.languageHint}`);
     }
 
-    parts.push("", "Now transcribe the following audio:");
+    parts.push("", "Transcribe the audio below:");
 
     return parts.join("\n");
   }
 
+  /**
+   * Build optimized prompt for speaker diarization
+   * Outputs structured JSON with speaker labels and timestamps
+   */
+  private buildDiarizationPrompt(options: TranscriptionOptions): string {
+    const parts: string[] = [
+      "You are a highly accurate speech-to-text assistant with speaker diarization capabilities.",
+      "",
+      "Instructions:",
+      "- Transcribe the audio and identify distinct speakers",
+      "- Label speakers as SPEAKER_1, SPEAKER_2, etc.",
+      "- If uncertain about speaker identity, use 'SPEAKER_UNKNOWN'",
+      "- Output structured data with approximate timestamps",
+      "- Do not hallucinate speakers or content not in the audio",
+      "",
+      "Output Format (JSON array):",
+      "[",
+      "  {",
+      '    "speaker": "SPEAKER_1",',
+      '    "text": "transcribed text here",',
+      '    "start": 0.0,',
+      '    "end": 5.2',
+      "  },",
+      "  {",
+      '    "speaker": "SPEAKER_2",',
+      '    "text": "response text here",',
+      '    "start": 5.3,',
+      '    "end": 10.0',
+      "  }",
+      "]",
+      "",
+    ];
+
+    if (options.previousContext) {
+      parts.push(
+        "Previous context:",
+        `\"${options.previousContext}\"`,
+        "",
+        "Maintain speaker consistency with previous segments.",
+        ""
+      );
+    }
+
+    if (options.languageHint) {
+      parts.push(`Language: ${options.languageHint}`, "");
+    }
+
+    parts.push("For the audio below, transcribe with speaker labels and timestamps:");
+
+    return parts.join("\n");
+  }
 
   private buildSummaryPrompt(transcript: string, options: SummaryOptions): string {
     const parts: string[] = ["Summarize the following transcript concisely."];
@@ -329,7 +380,6 @@ class GeminiTranscriptionService {
     return parts.join("\n");
   }
 
- 
   private extractSpeakers(text: string): string[] {
     const speakerPattern = /\[Speaker \d+\]/g;
     const matches = text.match(speakerPattern);
@@ -338,7 +388,6 @@ class GeminiTranscriptionService {
     // Return unique speakers
     return Array.from(new Set(matches)).sort();
   }
-
 
   private extractKeyPoints(summary: string): string[] {
     const lines = summary.split("\n");

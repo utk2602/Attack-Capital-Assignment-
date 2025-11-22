@@ -81,13 +81,13 @@ export const chunkLogger = {
     });
   },
 
-  processed: (data: {
+  processed: (sessionId: string, sequence: number, length: number, data: {
     sessionId: string;
     sequence: number;
     chunkId: string;
     processingTimeMs: number;
     audioPath: string;
-  }) => {
+}) => {
     logger.info("Chunk processed", {
       event: "chunk_processed",
       sessionId: data.sessionId,

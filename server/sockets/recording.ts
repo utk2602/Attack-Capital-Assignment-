@@ -103,14 +103,9 @@ export function setupRecordingSockets(io: Server, socket: Socket) {
     }
   });
 
-  /**
-   * Handle audio chunk streaming
-   * Saves chunk to disk and creates TranscriptChunk entry in database
-   */
   socket.on("audio-chunk", async (rawData: unknown) => {
     const chunkStartTime = Date.now();
 
-    // Validate payload
     const validation = safeValidateSocketPayload(AudioChunkSchema, rawData);
 
     if (!validation.success) {
@@ -141,7 +136,6 @@ export function setupRecordingSockets(io: Server, socket: Socket) {
     const data = validation.data;
 
     try {
-      // Get session to retrieve userId for logging
       const session = await prisma.recordingSession.findUnique({
         where: { id: data.sessionId },
         select: { userId: true },
@@ -180,7 +174,7 @@ export function setupRecordingSockets(io: Server, socket: Socket) {
 
       const processingTime = Date.now() - chunkStartTime;
 
-      chunkLogger.processed({
+      chunkLogger.processed(data.sessionId, data.sequence, data.size, {
         sessionId: data.sessionId,
         sequence: data.sequence,
         chunkId: chunk.id,

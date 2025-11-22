@@ -5,7 +5,6 @@
 #   - Start: docker-compose up -d
 #   - Stop: docker-compose down
 #   - View logs: docker-compose logs -f postgres
-#   - Connect: psql postgresql://postgres:utkk3484@localhost:5432/scribeai
 
 version: "3.8"
 
