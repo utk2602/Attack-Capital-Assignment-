@@ -1,0 +1,59 @@
+# Docker Compose for ScribeAI Development Environment
+# This file sets up a PostgreSQL database for local development
+#
+# Usage:
+#   - Start: docker-compose up -d
+#   - Stop: docker-compose down
+#   - View logs: docker-compose logs -f postgres
+#   - Connect: psql postgresql://postgres:utkk3484@localhost:5432/scribeai
+
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: scribeai-postgres
+    restart: unless-stopped
+
+    # Environment variables for database configuration
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: utkk3484
+      POSTGRES_DB: scribeai
+      # Performance tuning for development
+      POSTGRES_INITDB_ARGS: "-E UTF8 --locale=en_US.UTF-8"
+
+    # Port mapping: host:container
+    ports:
+      - "5432:5432"
+
+    # Persistent volume for database data
+    # Data will persist even if container is removed
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # Optional: Custom PostgreSQL configuration
+      # - ./postgres.conf:/etc/postgresql/postgresql.conf
+
+    # Health check to ensure database is ready
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d scribeai"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+    # Resource limits (optional, adjust based on your needs)
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: '1'
+    #       memory: 1G
+
+# Named volumes for data persistence
+volumes:
+  postgres_data:
+    driver: local
+
+# Optional: Custom network for isolation
+networks:
+  default:
+    name: scribeai-network

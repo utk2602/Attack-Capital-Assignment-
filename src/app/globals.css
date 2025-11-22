@@ -1,0 +1,20 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Global tweaks */
+html,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  @apply bg-white text-slate-900 antialiased;
+}
+
+/* Dark mode support */
+.dark body {
+  @apply bg-gray-900 text-white;
+}
