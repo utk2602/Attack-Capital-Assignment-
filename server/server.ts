@@ -3,6 +3,7 @@ import { parse } from "url";
 import next from "next";
 import { Server } from "socket.io";
 import { setupRecordingSockets } from "./sockets/recording";
+import { initializeTranscriptionWorker } from "./workers/transcription.worker";
 
 const dev = process.env.NODE_ENV !== "production";
 const hostname = "localhost";
@@ -10,6 +11,13 @@ const port = 3000;
 
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
+
+let io: Server;
+
+export function getIO(): Server {
+  if (!io) throw new Error("Socket.io not initialized");
+  return io;
+}
 
 app.prepare().then(() => {
   const server = createServer(async (req, res) => {
@@ -23,7 +31,7 @@ app.prepare().then(() => {
     }
   });
 
-  const io = new Server(server, {
+  io = new Server(server, {
     cors: {
       origin: "*",
     },
@@ -37,6 +45,8 @@ app.prepare().then(() => {
       console.log("❌ Client disconnected:", socket.id);
     });
   });
+
+  initializeTranscriptionWorker();
 
   server.listen(port, () => {
     console.log(`> Ready on http://${hostname}:${port}`);

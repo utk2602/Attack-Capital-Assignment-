@@ -5,6 +5,7 @@ import { gemini } from "@/lib/gemini";
 import fs from "fs/promises";
 import path from "path";
 import { chunkLogger, sessionLogger } from "../utils/logger";
+import { getIO } from "../server";
 
 /**
  * Transcription worker that processes audio chunks from the queue
@@ -149,6 +150,13 @@ async function processTranscription(
       `[Worker] Chunk processed successfully: chunk=${chunkId}, total=${totalTime}ms (conversion=${conversionTime}ms, transcription=${transcriptionTime}ms)`
     );
 
+    emitTranscriptUpdate(sessionId, {
+      sequence,
+      text: result.text,
+      speaker: result.speakers?.[0],
+      chunkId,
+    });
+
     // Step 8: Cleanup temporary WAV file
     try {
       await fs.unlink(wavPath);
@@ -289,4 +297,24 @@ export function getQueueStats() {
 export function retryFailedJobs() {
   transcriptionQueue.retryFailedJobs();
   console.log("[Worker] Retrying all failed jobs");
+}
+
+function emitTranscriptUpdate(
+  sessionId: string,
+  data: {
+    sequence: number;
+    text: string;
+    speaker?: string;
+    chunkId: string;
+  }
+) {
+  const io = getIO();
+  io.to(`session:${sessionId}`).emit("transcript-updated", {
+    sessionId,
+    sequence: data.sequence,
+    text: data.text,
+    speaker: data.speaker,
+    chunkId: data.chunkId,
+    timestamp: Date.now(),
+  });
 }

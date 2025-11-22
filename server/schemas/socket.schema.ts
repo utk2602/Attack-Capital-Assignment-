@@ -36,6 +36,7 @@ export type ResumeSessionPayload = z.infer<typeof ResumeSessionSchema>;
 
 export const StopSessionSchema = z.object({
   sessionId: z.string().uuid("Session ID must be a valid UUID"),
+  userId: z.string().optional(),
 });
 
 export type StopSessionPayload = z.infer<typeof StopSessionSchema>;
@@ -57,7 +58,6 @@ export function validateSocketPayload<T>(
     throw error;
   }
 }
-
 
 export function safeValidateSocketPayload<T>(
   schema: z.ZodSchema<T>,

@@ -273,29 +273,29 @@ export function setupRecordingSockets(io: Server, socket: Socket) {
     const data = validation.data;
 
     try {
-      const session = await prisma.recordingSession.update({
+      await prisma.recordingSession.update({
         where: { id: data.sessionId },
         data: {
-          status: "completed",
+          status: "stopped",
           endedAt: new Date(),
-        },
-        include: {
-          chunks: {
-            select: { id: true },
-          },
         },
       });
 
       sessionLogger.completed({
-        sessionId: session.id,
-        userId: session.userId,
-        totalChunks: session.chunks.length,
+        sessionId: data.sessionId,
+        userId: data.userId || "unknown",
+        totalChunks: 0,
       });
 
       socket.emit("session-stopped", {
-        sessionId: session.id,
-        status: "completed",
-        endedAt: session.endedAt,
+        sessionId: data.sessionId,
+        status: "stopped",
+        endedAt: new Date(),
+      });
+
+      const { finalizeSession } = await import("../processors/finalize");
+      finalizeSession(data.sessionId).catch((error) => {
+        console.error(`[Stop] Finalization failed for ${data.sessionId}:`, error);
       });
     } catch (error) {
       sessionLogger.error({

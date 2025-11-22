@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
 import { RecordingControls } from "@/components/RecordingControls";
 import { AudioPlayer } from "@/components/AudioPlayer";
+import { TranscriptView } from "@/components/TranscriptView";
+import { SessionCompletionCard } from "@/components/SessionCompletionCard";
 import { useAudioRecorder } from "@/hooks/useAudioRecorder";
 import { useSocket } from "@/hooks/useSocket";
 import { FileAudio, History, Wifi, WifiOff } from "lucide-react";
@@ -155,7 +157,6 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
-      \{" "}
       <nav className="bg-white dark:bg-gray-800 shadow-sm">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
@@ -194,7 +195,6 @@ export default function Home() {
           </div>
         </div>
       </nav>
-      \{" "}
       <main className="container mx-auto px-4 py-12">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-12">
@@ -335,9 +335,34 @@ export default function Home() {
                   <AudioPlayer sessionId={completedSessionId} />
                 </div>
               )}
+
+              {/* Live Transcript View */}
+              {sessionId && (
+                <div className="mt-8">
+                  <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center gap-2">
+                    <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+                    Live Transcript
+                  </h3>
+                  <TranscriptView sessionId={sessionId} />
+                </div>
+              )}
+
+              {/* Session Completion Summary */}
+              {completedSessionId && !sessionId && (
+                <div className="mt-8">
+                  <SessionCompletionCard
+                    sessionId={completedSessionId}
+                    onDownload={(format) => {
+                      window.open(
+                        `/api/sessions/${completedSessionId}/download?format=${format}`,
+                        "_blank"
+                      );
+                    }}
+                  />
+                </div>
+              )}
             </>
           )}
-          \{" "}
           <div className="grid md:grid-cols-3 gap-6 mt-12">
             <div className="p-6 rounded-lg bg-white dark:bg-gray-800 shadow-md">
               <div className="w-12 h-12 rounded-full bg-brand-100 dark:bg-brand-900 flex items-center justify-center mb-4">
