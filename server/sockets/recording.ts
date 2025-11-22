@@ -2,9 +2,17 @@ import { Server, Socket } from "socket.io";
 import { PrismaClient } from "@prisma/client";
 import * as fs from "fs";
 import * as path from "path";
+import {
+  StartSessionSchema,
+  AudioChunkSchema,
+  PauseSessionSchema,
+  ResumeSessionSchema,
+  StopSessionSchema,
+  safeValidateSocketPayload,
+} from "../schemas/socket.schema";
+import { chunkLogger, sessionLogger, socketLogger } from "../utils/logger";
 
 const prisma = new PrismaClient();
-
 
 const STORAGE_DIR = path.join(process.cwd(), "storage", "audio-chunks");
 
@@ -18,132 +26,234 @@ if (!fs.existsSync(STORAGE_DIR)) {
  * @param socket - Client socket connection
  */
 export function setupRecordingSockets(io: Server, socket: Socket) {
+  socketLogger.connected(socket.id, {
+    handshake: socket.handshake.address,
+  });
+
   /**
    * Handle start recording session
    * Creates a new RecordingSession in the database
    */
-  socket.on(
-    "start-session",
-    async (data: { sessionId: string; userId: string; source: "mic" | "tab" }) => {
-      console.log(`🎙️ Starting session: ${data.sessionId}, source: ${data.source}`);
+  socket.on("start-session", async (rawData: unknown) => {
+    // Validate payload
+    const validation = safeValidateSocketPayload(StartSessionSchema, rawData);
 
-      try {
-        const sessionDir = path.join(STORAGE_DIR, data.sessionId);
-        if (!fs.existsSync(sessionDir)) {
-          fs.mkdirSync(sessionDir, { recursive: true });
-        }
+    if (!validation.success) {
+      const errorMsg = validation.error.errors
+        .map((err) => `${err.path.join(".")}: ${err.message}`)
+        .join(", ");
 
-        const session = await prisma.recordingSession.create({
-          data: {
-            id: data.sessionId,
-            userId: data.userId,
-            title: `Recording - ${new Date().toLocaleString()}`,
-            status: "recording",
-            startedAt: new Date(),
-          },
-        });
+      sessionLogger.error({
+        sessionId:
+          typeof rawData === "object" && rawData !== null && "sessionId" in rawData
+            ? String((rawData as any).sessionId)
+            : "unknown",
+        error: `Validation failed: ${errorMsg}`,
+        operation: "start-session",
+      });
 
-        console.log(`Session created in DB: ${session.id}`);//db creation check kr rha hoon yaha pr 
-
-        socket.emit("session-started", {
-          sessionId: session.id,
-          status: "recording",
-          startedAt: session.startedAt,
-        });
-      } catch (error) {
-        console.error("Failed to create session:", error);
-        socket.emit("session-error", {
-          sessionId: data.sessionId,
-          error: "Failed to create session",
-        });
-      }
+      socket.emit("session-error", {
+        error: "Invalid session data",
+        details: errorMsg,
+      });
+      return;
     }
-  );
+
+    const data = validation.data;
+
+    sessionLogger.started({
+      sessionId: data.sessionId,
+      userId: data.userId,
+      source: data.source,
+      title: data.title,
+    });
+
+    try {
+      const sessionDir = path.join(STORAGE_DIR, data.sessionId);
+      if (!fs.existsSync(sessionDir)) {
+        fs.mkdirSync(sessionDir, { recursive: true });
+      }
+
+      const session = await prisma.recordingSession.create({
+        data: {
+          id: data.sessionId,
+          userId: data.userId,
+          title: data.title || `Recording - ${new Date().toLocaleString()}`,
+          status: "recording",
+          startedAt: new Date(),
+        },
+      });
+
+      socket.emit("session-started", {
+        sessionId: session.id,
+        status: "recording",
+        startedAt: session.startedAt,
+      });
+    } catch (error) {
+      sessionLogger.error({
+        sessionId: data.sessionId,
+        error: error instanceof Error ? error : new Error(String(error)),
+        operation: "start-session",
+      });
+
+      socket.emit("session-error", {
+        sessionId: data.sessionId,
+        error: "Failed to create session",
+      });
+    }
+  });
 
   /**
    * Handle audio chunk streaming
    * Saves chunk to disk and creates TranscriptChunk entry in database
    */
-  socket.on(
-    "audio-chunk",
-    async (data: {
-      sessionId: string;
-      sequence: number;
-      timestamp: number;
-      size: number;
-      mimeType: string;
-      audio: ArrayBuffer;
-    }) => {
-      const chunkStartTime = Date.now();
+  socket.on("audio-chunk", async (rawData: unknown) => {
+    const chunkStartTime = Date.now();
 
-      try {
-        const audioBuffer = Buffer.from(data.audio);
+    // Validate payload
+    const validation = safeValidateSocketPayload(AudioChunkSchema, rawData);
 
-        const filename = `${data.sessionId}_${data.sequence.toString().padStart(4, "0")}.webm`;
-        const sessionDir = path.join(STORAGE_DIR, data.sessionId);
-        const filePath = path.join(sessionDir, filename);
+    if (!validation.success) {
+      const errorMsg = validation.error.errors
+        .map((err) => `${err.path.join(".")}: ${err.message}`)
+        .join(", ");
 
-        if (!fs.existsSync(sessionDir)) {
-          fs.mkdirSync(sessionDir, { recursive: true });
-        }
+      chunkLogger.validationError({
+        sessionId:
+          typeof rawData === "object" && rawData !== null && "sessionId" in rawData
+            ? String((rawData as any).sessionId)
+            : undefined,
+        sequence:
+          typeof rawData === "object" && rawData !== null && "sequence" in rawData
+            ? Number((rawData as any).sequence)
+            : undefined,
+        validationErrors: errorMsg,
+        rawData,
+      });
 
-        await fs.promises.writeFile(filePath, audioBuffer);
-
-        const chunk = await prisma.transcriptChunk.create({
-          data: {
-            sessionId: data.sessionId,
-            seq: data.sequence,
-            audioPath: filePath,
-            durationMs: 30000, 
-            status: "uploaded",
-          },
-        });
-
-        const processingTime = Date.now() - chunkStartTime;
-
-        console.log(
-          `Chunk ${data.sequence} saved: ${(data.size / 1024).toFixed(2)} KB (${processingTime}ms)`
-        );
-
-        socket.emit("chunk-ack", {
-          sessionId: data.sessionId,
-          sequence: data.sequence,
-          timestamp: data.timestamp,
-          receivedAt: chunkStartTime,
-          processingTime,
-          bytesReceived: data.size,
-          chunkId: chunk.id,
-        });
-
-      } catch (error) {
-        console.error(`failed chunk save ${data.sequence}:`, error);
-        socket.emit("chunk-error", {
-          sessionId: data.sessionId,
-          sequence: data.sequence,
-          error: "failed chunk save",
-        });
-      }
+      socket.emit("chunk-error", {
+        error: "Invalid chunk data",
+        details: errorMsg,
+      });
+      return;
     }
-  );
 
-  
-  socket.on("pause-session", async (data: { sessionId: string; pausedAt: number }) => {
-    console.log(`Session paused: ${data.sessionId} at ${new Date(data.pausedAt).toISOString()}`);
+    const data = validation.data;
 
     try {
+      // Get session to retrieve userId for logging
+      const session = await prisma.recordingSession.findUnique({
+        where: { id: data.sessionId },
+        select: { userId: true },
+      });
 
+      chunkLogger.received({
+        sessionId: data.sessionId,
+        sequence: data.sequence,
+        userId: session?.userId || "unknown",
+        size: data.size,
+        durationMs: 30000,
+        mimeType: data.mimeType,
+      });
+
+      const audioBuffer = Buffer.from(data.audio);
+
+      const filename = `${data.sessionId}_${data.sequence.toString().padStart(4, "0")}.webm`;
+      const sessionDir = path.join(STORAGE_DIR, data.sessionId);
+      const filePath = path.join(sessionDir, filename);
+
+      if (!fs.existsSync(sessionDir)) {
+        fs.mkdirSync(sessionDir, { recursive: true });
+      }
+
+      await fs.promises.writeFile(filePath, audioBuffer);
+
+      const chunk = await prisma.transcriptChunk.create({
+        data: {
+          sessionId: data.sessionId,
+          seq: data.sequence,
+          audioPath: filePath,
+          durationMs: 30000,
+          status: "uploaded",
+        },
+      });
+
+      const processingTime = Date.now() - chunkStartTime;
+
+      chunkLogger.processed({
+        sessionId: data.sessionId,
+        sequence: data.sequence,
+        chunkId: chunk.id,
+        processingTimeMs: processingTime,
+        audioPath: filePath,
+      });
+
+      socket.emit("chunk-ack", {
+        sessionId: data.sessionId,
+        sequence: data.sequence,
+        timestamp: data.timestamp,
+        receivedAt: chunkStartTime,
+        processingTime,
+        bytesReceived: data.size,
+        chunkId: chunk.id,
+      });
+    } catch (error) {
+      chunkLogger.error({
+        sessionId: data.sessionId,
+        sequence: data.sequence,
+        error: error instanceof Error ? error : new Error(String(error)),
+        userId: undefined,
+      });
+
+      socket.emit("chunk-error", {
+        sessionId: data.sessionId,
+        sequence: data.sequence,
+        error: "Failed to save chunk",
+      });
+    }
+  });
+
+  socket.on("pause-session", async (rawData: unknown) => {
+    const validation = safeValidateSocketPayload(PauseSessionSchema, rawData);
+
+    if (!validation.success) {
+      return;
+    }
+
+    const data = validation.data;
+
+    sessionLogger.paused({
+      sessionId: data.sessionId,
+      pausedAt: data.pausedAt,
+    });
+
+    try {
       socket.emit("session-paused", {
         sessionId: data.sessionId,
         pausedAt: data.pausedAt,
       });
     } catch (error) {
-      console.error("session paude error", error);
+      sessionLogger.error({
+        sessionId: data.sessionId,
+        error: error instanceof Error ? error : new Error(String(error)),
+        operation: "pause-session",
+      });
     }
   });
-  socket.on("resume-session", async (data: { sessionId: string; resumedAt: number }) => {
-    console.log(
-      `▶️ Session resumed: ${data.sessionId} at ${new Date(data.resumedAt).toISOString()}`
-    );
+
+  socket.on("resume-session", async (rawData: unknown) => {
+    const validation = safeValidateSocketPayload(ResumeSessionSchema, rawData);
+
+    if (!validation.success) {
+      return;
+    }
+
+    const data = validation.data;
+
+    sessionLogger.resumed({
+      sessionId: data.sessionId,
+      resumedAt: data.resumedAt,
+    });
 
     try {
       socket.emit("session-resumed", {
@@ -151,13 +261,22 @@ export function setupRecordingSockets(io: Server, socket: Socket) {
         resumedAt: data.resumedAt,
       });
     } catch (error) {
-      console.error("failed to resume session", error);
+      sessionLogger.error({
+        sessionId: data.sessionId,
+        error: error instanceof Error ? error : new Error(String(error)),
+        operation: "resume-session",
+      });
     }
   });
 
+  socket.on("stop-session", async (rawData: unknown) => {
+    const validation = safeValidateSocketPayload(StopSessionSchema, rawData);
 
-  socket.on("stop-session", async (data: { sessionId: string }) => {
-    console.log(`Stopping session: ${data.sessionId}`);
+    if (!validation.success) {
+      return;
+    }
+
+    const data = validation.data;
 
     try {
       const session = await prisma.recordingSession.update({
@@ -166,9 +285,18 @@ export function setupRecordingSockets(io: Server, socket: Socket) {
           status: "completed",
           endedAt: new Date(),
         },
+        include: {
+          chunks: {
+            select: { id: true },
+          },
+        },
       });
 
-      console.log(`Session sorted: ${session.id}`);
+      sessionLogger.completed({
+        sessionId: session.id,
+        userId: session.userId,
+        totalChunks: session.chunks.length,
+      });
 
       socket.emit("session-stopped", {
         sessionId: session.id,
@@ -176,7 +304,12 @@ export function setupRecordingSockets(io: Server, socket: Socket) {
         endedAt: session.endedAt,
       });
     } catch (error) {
-      console.error("Failed to stop session:", error);
+      sessionLogger.error({
+        sessionId: data.sessionId,
+        error: error instanceof Error ? error : new Error(String(error)),
+        operation: "stop-session",
+      });
+
       socket.emit("session-error", {
         sessionId: data.sessionId,
         error: "Failed to stop session",
@@ -184,7 +317,7 @@ export function setupRecordingSockets(io: Server, socket: Socket) {
     }
   });
 
-  socket.on("disconnect", () => {
-    console.log("disconnected:", socket.id);
+  socket.on("disconnect", (reason) => {
+    socketLogger.disconnected(socket.id, reason);
   });
 }

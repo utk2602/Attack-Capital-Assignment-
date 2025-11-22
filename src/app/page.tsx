@@ -3,6 +3,7 @@ import { useSession, signOut } from "@/lib/authClient";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
 import { RecordingControls } from "@/components/RecordingControls";
+import { AudioPlayer } from "@/components/AudioPlayer";
 import { useAudioRecorder } from "@/hooks/useAudioRecorder";
 import { useSocket } from "@/hooks/useSocket";
 import { FileAudio, History, Wifi, WifiOff } from "lucide-react";
@@ -11,6 +12,7 @@ export default function Home() {
   const router = useRouter();
   const [chunkCount, setChunkCount] = useState(0);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [completedSessionId, setCompletedSessionId] = useState<string | null>(null);
   const [bytesTransferred, setBytesTransferred] = useState(0);
   const [avgLatency, setAvgLatency] = useState<number | null>(null);
   const [lastLatency, setLastLatency] = useState<number | null>(null);
@@ -126,6 +128,7 @@ export default function Home() {
       console.log("Recording stopped");
       if (sessionId) {
         stopSession(sessionId);
+        setCompletedSessionId(sessionId);
       }
       setSessionId(null);
     },
@@ -152,7 +155,8 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
-\      <nav className="bg-white dark:bg-gray-800 shadow-sm">
+      \{" "}
+      <nav className="bg-white dark:bg-gray-800 shadow-sm">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
             <FileAudio className="w-8 h-8 text-brand-500" />
@@ -190,8 +194,8 @@ export default function Home() {
           </div>
         </div>
       </nav>
-
-\      <main className="container mx-auto px-4 py-12">
+      \{" "}
+      <main className="container mx-auto px-4 py-12">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-12">
             <h2 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
@@ -201,7 +205,6 @@ export default function Home() {
               Record audio from your microphone or browser tab and get real-time AI transcription
             </p>
           </div>
-
           <div className="mb-8">
             <RecordingControls
               status={recorder.status}
@@ -214,13 +217,11 @@ export default function Home() {
               onSourceChange={recorder.changeSource}
             />
           </div>
-
           {recorder.error && (
             <div className="mb-6 p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
               <p className="text-red-800 dark:text-red-300 font-medium">Error: {recorder.error}</p>
             </div>
           )}
-
           {recorder.isRecording && (
             <>
               {/* Primary Stats */}
@@ -324,10 +325,20 @@ export default function Home() {
                   </div>
                 </div>
               </div>
+
+              {/* Audio Playback Section */}
+              {completedSessionId && (
+                <div className="mt-8">
+                  <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">
+                    Recorded Audio
+                  </h3>
+                  <AudioPlayer sessionId={completedSessionId} />
+                </div>
+              )}
             </>
           )}
-
-\          <div className="grid md:grid-cols-3 gap-6 mt-12">
+          \{" "}
+          <div className="grid md:grid-cols-3 gap-6 mt-12">
             <div className="p-6 rounded-lg bg-white dark:bg-gray-800 shadow-md">
               <div className="w-12 h-12 rounded-full bg-brand-100 dark:bg-brand-900 flex items-center justify-center mb-4">
                 <FileAudio className="w-6 h-6 text-brand-500" />
