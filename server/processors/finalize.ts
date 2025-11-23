@@ -22,7 +22,7 @@ export async function finalizeSession(sessionId: string): Promise<void> {
   const pendingChunks = session.chunks.filter((c) => c.status !== "transcribed");
   if (pendingChunks.length > 0) {
     console.log(`[Finalize] Waiting for ${pendingChunks.length} pending chunks`);
-    setTimeout(() => finalizeSession(sessionId), 5000);
+    setTimeout(() => finalizeSession(sessionId), 2000); // Reduced to 2s for faster completion
     return;
   }
 

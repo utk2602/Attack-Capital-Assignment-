@@ -99,7 +99,7 @@ async function processTranscription(sessionId: string, sequence: number): Promis
     const conversionResult = await convertToWav(chunk.audioPath, wavPath, {
       sampleRate: 16000,
       channels: 1,
-      applyFilters: false, // Disable filters for speed, enable if quality issues
+      applyFilters: false, // Disabled for maximum speed
       deleteSource: false, // Keep WebM for backup
     });
 
@@ -123,8 +123,15 @@ async function processTranscription(sessionId: string, sequence: number): Promis
     });
 
     const transcriptionTime = Date.now() - transcriptionStart;
+
+    // Validate the transcript
+    if (!result.text || result.text.length < 3) {
+      console.warn(`[Worker] Empty or very short transcript for chunk ${sequence}`);
+      result.text = "[No speech detected in this segment]";
+    }
+
     console.log(
-      `[Worker] Transcription completed in ${transcriptionTime}ms: ${result.text.length} chars`
+      `[Worker] Transcription completed in ${transcriptionTime}ms: ${result.text.length} chars, first 100 chars: "${result.text.substring(0, 100)}"`
     );
 
     // Step 6: Update database with results

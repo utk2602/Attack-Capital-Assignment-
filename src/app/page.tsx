@@ -13,11 +13,12 @@ import { Wifi, WifiOff } from "lucide-react";
 import { RetroLanding } from "@/components/RetroLanding";
 import { RetroSidebar } from "@/components/RetroSidebar";
 import { RetroHistoryWidget } from "@/components/RetroHistoryWidget";
+import AudioUpload from "@/components/AudioUpload";
 
 export default function Home() {
   const { data: session, isPending } = useSession();
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<"home" | "history">("home");
+  const [activeTab, setActiveTab] = useState<"home" | "history" | "upload">("home");
 
   // Logic State
   const [chunkCount, setChunkCount] = useState(0);
@@ -72,7 +73,7 @@ export default function Home() {
   }, [on, off]);
 
   const recorder = useAudioRecorder({
-    chunkDuration: 10000,
+    chunkDuration: 30000, // 30 seconds for better efficiency
     onChunk: (chunkData) => {
       setChunkCount(chunkData.sequence + 1);
       setBytesTransferred((prev) => prev + chunkData.blob.size);
@@ -150,7 +151,11 @@ export default function Home() {
         {/* Header */}
         <header className="h-16 border-b-4 border-black dark:border-white bg-white dark:bg-black flex items-center justify-between px-6 shrink-0 z-10">
           <h2 className="text-2xl font-black uppercase tracking-tighter">
-            {activeTab === "home" ? "Studio Dashboard" : "Session Archives"}
+            {activeTab === "home"
+              ? "Studio Dashboard"
+              : activeTab === "upload"
+                ? "Upload Audio"
+                : "Session Archives"}
           </h2>
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2 px-3 py-1 border-2 border-black dark:border-white bg-gray-100 dark:bg-gray-800 shadow-retro-hover">
@@ -267,6 +272,10 @@ export default function Home() {
                   </div>
                 </div>
               )}
+            </div>
+          ) : activeTab === "upload" ? (
+            <div className="max-w-4xl mx-auto h-full">
+              <AudioUpload />
             </div>
           ) : (
             <div className="max-w-4xl mx-auto h-full">

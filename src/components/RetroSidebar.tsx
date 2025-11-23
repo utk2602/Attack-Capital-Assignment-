@@ -1,12 +1,12 @@
 "use client";
 
-import { Home, History, Settings, LogOut, Mic } from "lucide-react";
+import { Home, History, Settings, LogOut, Mic, Upload } from "lucide-react";
 import { RetroThemeToggle } from "./RetroThemeToggle";
 import { signOut } from "@/lib/authClient";
 
 interface RetroSidebarProps {
-  activeTab: "home" | "history";
-  onTabChange: (tab: "home" | "history") => void;
+  activeTab: "home" | "history" | "upload";
+  onTabChange: (tab: "home" | "history" | "upload") => void;
   userEmail?: string;
 }
 
@@ -32,6 +32,18 @@ export function RetroSidebar({ activeTab, onTabChange, userEmail }: RetroSidebar
         >
           <Mic className="w-6 h-6" />
           <span className="hidden md:inline">Record</span>
+        </button>
+
+        <button
+          onClick={() => onTabChange("upload")}
+          className={`w-full flex items-center gap-3 p-3 font-bold border-4 border-black transition-all ${
+            activeTab === "upload"
+              ? "bg-retro-secondary text-black shadow-retro translate-x-[-2px] translate-y-[-2px]"
+              : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
+          }`}
+        >
+          <Upload className="w-6 h-6" />
+          <span className="hidden md:inline">Upload</span>
         </button>
 
         <button

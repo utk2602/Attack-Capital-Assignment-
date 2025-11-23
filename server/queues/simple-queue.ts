@@ -30,7 +30,7 @@ export class SimpleQueue<T = any> {
 
   constructor(options: QueueOptions = {}) {
     this.options = {
-      concurrency: options.concurrency ?? 3,
+      concurrency: options.concurrency ?? 5, // Increased for faster processing
       maxAttempts: options.maxAttempts ?? 3,
       backoffMs: options.backoffMs ?? 1000,
       exponentialBackoff: options.exponentialBackoff ?? true,

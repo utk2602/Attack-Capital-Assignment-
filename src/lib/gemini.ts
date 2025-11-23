@@ -20,6 +20,7 @@ interface TranscriptionOptions {
   enableDiarization?: boolean;
   temperature?: number;
   languageHint?: string;
+  timeout?: number; // Custom timeout in milliseconds
 }
 
 interface SummaryOptions {
@@ -43,7 +44,7 @@ class GeminiTranscriptionService {
     this.genAI = new GoogleGenerativeAI(apiKey);
     this.model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
     this.maxRetries = parseInt(process.env.GEMINI_MAX_RETRIES || "3", 10);
-    this.timeoutMs = parseInt(process.env.GEMINI_TIMEOUT_MS || "30000", 10);
+    this.timeoutMs = parseInt(process.env.GEMINI_TIMEOUT_MS || "120000", 10); // Default 2 minutes
   }
 
   /**
@@ -88,6 +89,7 @@ class GeminiTranscriptionService {
       let lastError: Error | null = null;
       for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
         try {
+          const timeoutMs = options.timeout || this.timeoutMs;
           const result = await Promise.race([
             model.generateContent({
               contents: [
@@ -109,11 +111,23 @@ class GeminiTranscriptionService {
                 maxOutputTokens: 2048,
               },
             }),
-            this.createTimeout(),
+            this.createTimeout(timeoutMs),
           ]);
 
           const response = await result.response;
-          const text = response.text().trim();
+          let text = response.text().trim();
+
+          // Limit transcript to 250 words maximum
+          const words = text.split(/\s+/);
+          if (words.length > 250) {
+            text =
+              words.slice(0, 250).join(" ") +
+              " [Transcript limited to 250 words for optimal processing]";
+          }
+
+          // Clean up common Gemini artifacts
+          text = this.cleanTranscriptText(text);
+
           const speakers = options.enableDiarization ? this.extractSpeakers(text) : undefined;
 
           const processingTimeMs = Date.now() - startTime;
@@ -277,38 +291,39 @@ class GeminiTranscriptionService {
 
     // Optimized prompt for single-chunk transcription with noisy audio handling
     const parts: string[] = [
-      "You are a highly accurate speech-to-text assistant.",
+      "You are a professional transcription service. Transcribe the audio EXACTLY as spoken.",
       "",
-      "**Important Context:**",
-      "- The audio may contain background noise, various accents, and environmental sounds",
-      "- Some sections may be unclear or have poor audio quality",
-      "- Focus on extracting clear, intelligible speech only",
+      "**CRITICAL RULES:**",
+      "1. Output ONLY the spoken words - NO explanations, NO commentary",
+      "2. If you cannot hear speech clearly, write [inaudible] - DO NOT guess",
+      "3. Use proper punctuation and capitalization",
+      "4. DO NOT include: audio descriptions, sound effects, or technical analysis",
+      "5. DO NOT start with phrases like 'The transcript is:' or 'Here is:'",
+      "6. If the audio is mostly noise with no clear speech, output: [No clear speech detected]",
       "",
-      "Instructions:",
-      "- Transcribe the audio word-for-word with correct punctuation and capitalization",
-      "- Output ONLY the transcript text",
-      "- Do not add commentary, explanations, or hallucinate content not in the audio",
-      "- If speech is garbled or unintelligible due to noise, mark as [inaudible]",
-      "- Remove obvious filler words (um, uh, like, you know) unless they provide context",
-      "- Do not guess at unclear words - prefer [inaudible] over incorrect transcription",
-      "- Use proper sentence structure and paragraph breaks for readability",
+      "Example of CORRECT output:",
+      "Hello everyone, welcome to today's meeting. Let's discuss the project timeline.",
+      "",
+      "Example of WRONG output:",
+      "The audio contains background noise. The speaker says: Hello everyone...",
+      "",
     ];
 
     if (options.previousContext) {
       parts.push(
+        "Previous segment ended with:",
+        `\"${options.previousContext.slice(-200)}...\"`,
         "",
-        "Context from previous audio:",
-        `\"${options.previousContext}\"`,
-        "",
-        "Continue transcribing seamlessly from this context."
+        "Continue seamlessly from where it left off.",
+        ""
       );
     }
 
     if (options.languageHint) {
-      parts.push("", `Language: ${options.languageHint}`);
+      parts.push(`Expected language: ${options.languageHint}`, "");
     }
 
-    parts.push("", "Transcribe the audio below:");
+    parts.push("NOW TRANSCRIBE THE AUDIO:");
 
     return parts.join("\n");
   }
@@ -403,6 +418,32 @@ class GeminiTranscriptionService {
     return Array.from(new Set(matches)).sort();
   }
 
+  private cleanTranscriptText(text: string): string {
+    // Remove common artifacts from Gemini responses
+    const artifacts = [
+      /^(The transcript is:|Here is the transcript:|Transcript:|Audio transcript:)\s*/i,
+      /^(Here's what was said:|The audio contains:|The speaker says:)\s*/i,
+      /^\*\*Transcript:\*\*\s*/i,
+      /^```[\w]*\n/, // Remove code block start
+      /\n```$/, // Remove code block end
+    ];
+
+    let cleaned = text;
+    for (const pattern of artifacts) {
+      cleaned = cleaned.replace(pattern, "");
+    }
+
+    // Remove empty lines at start/end
+    cleaned = cleaned.trim();
+
+    // If result is empty or just [inaudible], return as-is
+    if (!cleaned || cleaned === "[inaudible]" || cleaned === "[No clear speech detected]") {
+      return cleaned;
+    }
+
+    return cleaned;
+  }
+
   private extractKeyPoints(summary: string): string[] {
     const lines = summary.split("\n");
     const keyPoints: string[] = [];
@@ -425,11 +466,12 @@ class GeminiTranscriptionService {
     return keyPoints;
   }
 
-  private createTimeout(): Promise<never> {
+  private createTimeout(timeoutMs?: number): Promise<never> {
+    const timeout = timeoutMs || this.timeoutMs;
     return new Promise((_, reject) => {
       setTimeout(() => {
-        reject(new Error(`Request timeout after ${this.timeoutMs}ms`));
-      }, this.timeoutMs);
+        reject(new Error(`Request timeout after ${timeout}ms`));
+      }, timeout);
     });
   }
 
