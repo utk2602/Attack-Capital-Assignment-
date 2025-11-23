@@ -275,15 +275,22 @@ class GeminiTranscriptionService {
       return this.buildDiarizationPrompt(options);
     }
 
-    // Optimized prompt for single-chunk transcription without diarization
+    // Optimized prompt for single-chunk transcription with noisy audio handling
     const parts: string[] = [
       "You are a highly accurate speech-to-text assistant.",
+      "",
+      "**Important Context:**",
+      "- The audio may contain background noise, various accents, and environmental sounds",
+      "- Some sections may be unclear or have poor audio quality",
+      "- Focus on extracting clear, intelligible speech only",
       "",
       "Instructions:",
       "- Transcribe the audio word-for-word with correct punctuation and capitalization",
       "- Output ONLY the transcript text",
       "- Do not add commentary, explanations, or hallucinate content not in the audio",
-      "- Preserve natural speech including filler words (um, uh) when present",
+      "- If speech is garbled or unintelligible due to noise, mark as [inaudible]",
+      "- Remove obvious filler words (um, uh, like, you know) unless they provide context",
+      "- Do not guess at unclear words - prefer [inaudible] over incorrect transcription",
       "- Use proper sentence structure and paragraph breaks for readability",
     ];
 
@@ -314,12 +321,19 @@ class GeminiTranscriptionService {
     const parts: string[] = [
       "You are a highly accurate speech-to-text assistant with speaker diarization capabilities.",
       "",
+      "**Important Context:**",
+      "- The audio may contain background noise, various accents, and environmental sounds",
+      "- Some sections may be unclear or have poor audio quality",
+      "- Focus on extracting clear, intelligible speech only",
+      "",
       "Instructions:",
       "- Transcribe the audio and identify distinct speakers",
       "- Label speakers as SPEAKER_1, SPEAKER_2, etc.",
       "- If uncertain about speaker identity, use 'SPEAKER_UNKNOWN'",
       "- Output structured data with approximate timestamps",
       "- Do not hallucinate speakers or content not in the audio",
+      "- If speech is unintelligible due to noise, mark as [inaudible]",
+      "- Remove obvious filler words (um, uh, like) unless they provide context",
       "",
       "Output Format (JSON array):",
       "[",

@@ -12,6 +12,15 @@ import {
 } from "../schemas/socket.schema";
 import { chunkLogger, sessionLogger, socketLogger } from "../utils/logger";
 import { getBackpressureManager, removeBackpressureManager } from "../utils/backpressure";
+import {
+  authenticateSocket,
+  checkSessionRateLimit,
+  registerActiveSession,
+  unregisterActiveSession,
+  verifySessionOwnership,
+  chunkRateLimiter,
+  RateLimitError,
+} from "../utils/rateLimiter";
 
 const prisma = new PrismaClient();
 
@@ -33,8 +42,22 @@ export function setupRecordingSockets(io: Server, socket: Socket) {
 
   const backpressureManager = getBackpressureManager(socket.id);
 
+  // Authenticate socket on connection
+  let authenticatedUserId: string | null = null;
+
+  authenticateSocket(socket).then((userId) => {
+    authenticatedUserId = userId;
+    if (!userId) {
+      socket.emit("auth-error", { error: "Authentication required" });
+      socket.disconnect(true);
+    }
+  });
 
   socket.on("start-session", async (rawData: unknown) => {
+    if (!authenticatedUserId) {
+      socket.emit("session-error", { error: "Unauthorized" });
+      return;
+    }
     const validation = safeValidateSocketPayload(StartSessionSchema, rawData);
 
     if (!validation.success) {
@@ -60,6 +83,11 @@ export function setupRecordingSockets(io: Server, socket: Socket) {
 
     const data = validation.data;
 
+    if (data.userId !== authenticatedUserId) {
+      socket.emit("session-error", { error: "User ID mismatch" });
+      return;
+    }
+
     sessionLogger.started({
       sessionId: data.sessionId,
       userId: data.userId,
@@ -68,6 +96,9 @@ export function setupRecordingSockets(io: Server, socket: Socket) {
     });
 
     try {
+      // Check rate limits
+      await checkSessionRateLimit(data.userId);
+
       const sessionDir = path.join(STORAGE_DIR, data.sessionId);
       if (!fs.existsSync(sessionDir)) {
         fs.mkdirSync(sessionDir, { recursive: true });
@@ -83,12 +114,21 @@ export function setupRecordingSockets(io: Server, socket: Socket) {
         },
       });
 
+      registerActiveSession(data.userId, data.sessionId);
+
       socket.emit("session-started", {
         sessionId: session.id,
         status: "recording",
         startedAt: session.startedAt,
       });
     } catch (error) {
+      if (error instanceof RateLimitError) {
+        socket.emit("session-error", {
+          error: error.message,
+          code: error.code,
+        });
+        return;
+      }
       sessionLogger.error({
         sessionId: data.sessionId,
         error: error instanceof Error ? error : new Error(String(error)),
@@ -104,6 +144,12 @@ export function setupRecordingSockets(io: Server, socket: Socket) {
 
   socket.on("audio-chunk", async (rawData: unknown) => {
     const chunkStartTime = Date.now();
+
+    if (!authenticatedUserId) {
+      socket.emit("chunk-error", { error: "Unauthorized" });
+      return;
+    }
+
     if (!backpressureManager.canAccept()) {
       socket.emit("backpressure", { canAccept: false });
       console.warn(`[Backpressure] Rejecting chunk from ${socket.id}`);
@@ -143,6 +189,19 @@ export function setupRecordingSockets(io: Server, socket: Socket) {
     const data = validation.data;
 
     try {
+      const ownsSession = await verifySessionOwnership(data.sessionId, authenticatedUserId);
+      if (!ownsSession) {
+        backpressureManager.decrementQueue();
+        socket.emit("chunk-error", { error: "Unauthorized: session not owned by user" });
+        return;
+      }
+
+      if (!chunkRateLimiter.canAcceptChunk(data.sessionId)) {
+        backpressureManager.decrementQueue();
+        socket.emit("chunk-error", { error: "Chunk rate limit exceeded" });
+        return;
+      }
+
       const existingChunk = await prisma.transcriptChunk.findUnique({
         where: {
           sessionId_seq: {
@@ -323,6 +382,14 @@ export function setupRecordingSockets(io: Server, socket: Socket) {
     const data = validation.data;
 
     try {
+      if (authenticatedUserId) {
+        const ownsSession = await verifySessionOwnership(data.sessionId, authenticatedUserId);
+        if (!ownsSession) {
+          socket.emit("session-error", { error: "Unauthorized: cannot stop session" });
+          return;
+        }
+      }
+
       await prisma.recordingSession.update({
         where: { id: data.sessionId },
         data: {
@@ -330,6 +397,10 @@ export function setupRecordingSockets(io: Server, socket: Socket) {
           endedAt: new Date(),
         },
       });
+
+      if (authenticatedUserId) {
+        unregisterActiveSession(authenticatedUserId, data.sessionId);
+      }
 
       sessionLogger.completed({
         sessionId: data.sessionId,
