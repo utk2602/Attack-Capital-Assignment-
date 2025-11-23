@@ -11,6 +11,7 @@ import {
   safeValidateSocketPayload,
 } from "../schemas/socket.schema";
 import { chunkLogger, sessionLogger, socketLogger } from "../utils/logger";
+import { getBackpressureManager, removeBackpressureManager } from "../utils/backpressure";
 
 const prisma = new PrismaClient();
 
@@ -30,12 +31,10 @@ export function setupRecordingSockets(io: Server, socket: Socket) {
     handshake: socket.handshake.address,
   });
 
-  /**
-   * Handle start recording session
-   * Creates a new RecordingSession in the database
-   */
+  const backpressureManager = getBackpressureManager(socket.id);
+
+
   socket.on("start-session", async (rawData: unknown) => {
-    // Validate payload
     const validation = safeValidateSocketPayload(StartSessionSchema, rawData);
 
     if (!validation.success) {
@@ -105,10 +104,18 @@ export function setupRecordingSockets(io: Server, socket: Socket) {
 
   socket.on("audio-chunk", async (rawData: unknown) => {
     const chunkStartTime = Date.now();
+    if (!backpressureManager.canAccept()) {
+      socket.emit("backpressure", { canAccept: false });
+      console.warn(`[Backpressure] Rejecting chunk from ${socket.id}`);
+      return;
+    }
+
+    backpressureManager.incrementQueue();
 
     const validation = safeValidateSocketPayload(AudioChunkSchema, rawData);
 
     if (!validation.success) {
+      backpressureManager.decrementQueue();
       const errorMsg = validation.error.errors
         .map((err) => `${err.path.join(".")}: ${err.message}`)
         .join(", ");
@@ -136,6 +143,31 @@ export function setupRecordingSockets(io: Server, socket: Socket) {
     const data = validation.data;
 
     try {
+      const existingChunk = await prisma.transcriptChunk.findUnique({
+        where: {
+          sessionId_seq: {
+            sessionId: data.sessionId,
+            seq: data.sequence,
+          },
+        },
+      });
+
+      if (existingChunk) {
+        console.log(`[Idempotency] Duplicate chunk: ${data.sessionId}/${data.sequence}`);
+
+        backpressureManager.decrementQueue();
+
+        socket.emit("chunk-ack", {
+          sessionId: data.sessionId,
+          sequence: data.sequence,
+          timestamp: data.timestamp,
+          chunkId: existingChunk.id,
+          duplicate: true,
+          canAccept: backpressureManager.canAccept(),
+        });
+        return;
+      }
+
       const session = await prisma.recordingSession.findUnique({
         where: { id: data.sessionId },
         select: { userId: true },
@@ -182,6 +214,8 @@ export function setupRecordingSockets(io: Server, socket: Socket) {
         audioPath: filePath,
       });
 
+      backpressureManager.decrementQueue();
+
       socket.emit("chunk-ack", {
         sessionId: data.sessionId,
         sequence: data.sequence,
@@ -190,8 +224,24 @@ export function setupRecordingSockets(io: Server, socket: Socket) {
         processingTime,
         bytesReceived: data.size,
         chunkId: chunk.id,
+        duplicate: false,
+        canAccept: backpressureManager.canAccept(),
       });
     } catch (error) {
+      backpressureManager.decrementQueue();
+
+      if ((error as any).code === "P2002") {
+        console.warn(`[Idempotency] Race condition for chunk ${data.sequence}`);
+        socket.emit("chunk-ack", {
+          sessionId: data.sessionId,
+          sequence: data.sequence,
+          timestamp: data.timestamp,
+          duplicate: true,
+          canAccept: backpressureManager.canAccept(),
+        });
+        return;
+      }
+
       chunkLogger.error({
         sessionId: data.sessionId,
         sequence: data.sequence,
@@ -313,5 +363,6 @@ export function setupRecordingSockets(io: Server, socket: Socket) {
 
   socket.on("disconnect", (reason) => {
     socketLogger.disconnected(socket.id, reason);
+    removeBackpressureManager(socket.id);
   });
 }
