@@ -2,9 +2,9 @@ import { Socket } from "socket.io";
 import { prisma as db } from "@/lib/db";
 const MAX_CONCURRENT_SESSIONS_PER_USER = 2;
 const MAX_SESSIONS_PER_DAY = 10;
-const SESSION_LIMIT_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 hours
+const SESSION_LIMIT_WINDOW_MS = 24 * 60 * 60 * 1000;
 
-const activeSessions = new Map<string, Set<string>>(); // userId -> Set<sessionId>
+const activeSessions = new Map<string, Set<string>>(); 
 
 export class RateLimitError extends Error {
   constructor(

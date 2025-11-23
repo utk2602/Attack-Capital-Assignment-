@@ -1,0 +1,2 @@
+{"event":"socket_connected","handshake":"::1","level":"info","message":"Socket connected","service":"scribeai-server","socketId":"uIrechmYmEXcHIEmAAAB","timestamp":"2025-11-23 08:13:59"}
+{"event":"socket_disconnected","level":"info","message":"Socket disconnected","reason":"server namespace disconnect","service":"scribeai-server","socketId":"uIrechmYmEXcHIEmAAAB","timestamp":"2025-11-23 08:13:59"}

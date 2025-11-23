@@ -68,12 +68,13 @@ model RecordingSession {
   userId        String
   user          User              @relation(fields: [userId], references: [id])
   title         String?
-  status        String            @default("recording") // recording, paused, processing, completed
+  status        String            @default("recording") 
   startedAt     DateTime          @default(now())
   endedAt       DateTime?
-  transcript    String?           // aggregated final transcript (nullable)
-  summaryJSON   Json?             // store summary as JSON
+  transcript    String?           
+  summaryJSON   Json?            
   chunks        TranscriptChunk[]
+  events        RecordingEvent[]
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
 }
@@ -83,13 +84,26 @@ model TranscriptChunk {
   sessionId  String
   session    RecordingSession @relation(fields: [sessionId], references: [id])
   seq        Int
-  audioPath  String           // local file path or S3/cloud URL
+  audioPath  String           
   durationMs Int
   text       String?
   speaker    String?
   confidence Float?
-  status     String           @default("uploaded") // uploaded, transcribed, failed
+  status     String           @default("uploaded") 
   createdAt  DateTime         @default(now())
 
   @@unique([sessionId, seq])
+}
+
+/// Event log for session-level activities (start, pause, resume, chunk upload, transcription events)
+model RecordingEvent {
+  id         String   @id @default(uuid())
+  sessionId  String
+  session    RecordingSession @relation(fields: [sessionId], references: [id])
+  type       String   
+  actorId    String?  
+  metadata   Json?    
+  createdAt  DateTime @default(now())
+
+  @@index([sessionId, createdAt])
 }
