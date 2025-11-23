@@ -38,17 +38,23 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
-      <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-xl w-full max-w-md">
-        <h1 className="text-3xl font-bold text-center mb-2">ScribeAI</h1>
-        <p className="text-center text-gray-600 dark:text-gray-400 mb-8">
-          {isSignUp ? "Create your account" : "Sign in to continue"}
+    <div className="min-h-screen flex items-center justify-center bg-retro-bg dark:bg-retro-dark p-4">
+      <div className="bg-white dark:bg-gray-900 p-8 border-4 border-black dark:border-white shadow-retro w-full max-w-md relative">
+        {/* Decorative elements */}
+        <div className="absolute -top-4 -left-4 w-8 h-8 bg-retro-accent border-4 border-black"></div>
+        <div className="absolute -bottom-4 -right-4 w-8 h-8 bg-retro-primary border-4 border-black"></div>
+
+        <h1 className="text-4xl font-black text-center mb-2 uppercase tracking-tighter">
+          ScribeAI
+        </h1>
+        <p className="text-center text-gray-600 dark:text-gray-400 mb-8 font-bold border-b-4 border-black dark:border-white pb-4">
+          {isSignUp ? "JOIN THE REVOLUTION" : "ACCESS TERMINAL"}
         </p>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-6">
           {isSignUp && (
             <div>
-              <label htmlFor="name" className="block text-sm font-medium mb-1">
+              <label htmlFor="name" className="block text-sm font-bold mb-1 uppercase">
                 Name
               </label>
               <input
@@ -56,14 +62,14 @@ export default function AuthPage() {
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700"
+                className="w-full px-4 py-3 border-4 border-black dark:border-white bg-gray-50 dark:bg-gray-800 focus:outline-none focus:bg-retro-secondary/20 transition-colors font-mono"
                 required={isSignUp}
               />
             </div>
           )}
 
           <div>
-            <label htmlFor="email" className="block text-sm font-medium mb-1">
+            <label htmlFor="email" className="block text-sm font-bold mb-1 uppercase">
               Email
             </label>
             <input
@@ -71,13 +77,13 @@ export default function AuthPage() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700"
+              className="w-full px-4 py-3 border-4 border-black dark:border-white bg-gray-50 dark:bg-gray-800 focus:outline-none focus:bg-retro-secondary/20 transition-colors font-mono"
               required
             />
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium mb-1">
+            <label htmlFor="password" className="block text-sm font-bold mb-1 uppercase">
               Password
             </label>
             <input
@@ -85,36 +91,33 @@ export default function AuthPage() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700"
+              className="w-full px-4 py-3 border-4 border-black dark:border-white bg-gray-50 dark:bg-gray-800 focus:outline-none focus:bg-retro-secondary/20 transition-colors font-mono"
               required
               minLength={6}
             />
           </div>
 
           {error && (
-            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 px-4 py-2 rounded-lg text-sm">
-              {error}
+            <div className="bg-red-100 border-4 border-red-500 text-red-900 px-4 py-2 font-bold text-sm">
+              ERROR: {error}
             </div>
           )}
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white font-semibold py-2 px-4 rounded-lg transition"
+            className="w-full py-3 bg-retro-primary text-black font-black text-lg border-4 border-black shadow-retro hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-retro-hover active:translate-x-[4px] active:translate-y-[4px] active:shadow-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? "Processing..." : isSignUp ? "Sign Up" : "Sign In"}
+            {loading ? "PROCESSING..." : isSignUp ? "CREATE ACCOUNT" : "ENTER SYSTEM"}
           </button>
         </form>
 
         <div className="mt-6 text-center">
           <button
-            onClick={() => {
-              setIsSignUp(!isSignUp);
-              setError("");
-            }}
-            className="text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 text-sm"
+            onClick={() => setIsSignUp(!isSignUp)}
+            className="text-sm font-bold underline decoration-4 decoration-retro-accent hover:decoration-retro-primary transition-all"
           >
-            {isSignUp ? "Already have an account? Sign in" : "Don't have an account? Sign up"}
+            {isSignUp ? "Already have an account? Sign in" : "Need an account? Sign up"}
           </button>
         </div>
       </div>

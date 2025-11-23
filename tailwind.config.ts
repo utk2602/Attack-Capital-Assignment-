@@ -12,6 +12,14 @@ export default {
       colors: {
         background: "var(--background)",
         foreground: "var(--foreground)",
+        retro: {
+          bg: "#f0f0f0",
+          dark: "#1a1a1a",
+          primary: "#FF6B6B", // Red/Pink
+          secondary: "#4ECDC4", // Teal
+          accent: "#FFE66D", // Yellow
+          border: "#000000",
+        },
         brand: {
           50: "#f5f8ff",
           100: "#ebf2ff",
@@ -24,6 +32,10 @@ export default {
           800: "#1e3a8a",
           900: "#1e3a8a",
         },
+      },
+      boxShadow: {
+        retro: "4px 4px 0px 0px #000000",
+        "retro-hover": "2px 2px 0px 0px #000000",
       },
     },
   },
