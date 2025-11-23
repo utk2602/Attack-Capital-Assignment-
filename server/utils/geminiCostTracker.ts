@@ -1,4 +1,7 @@
-import { prisma as db } from "@/lib/db";
+import { prisma } from "@/lib/db";
+
+// Cast to any to avoid type errors if Prisma Client types are not yet updated in the editor
+const db = prisma as any;
 
 /**
  * Gemini API Cost Tracking
@@ -124,7 +127,7 @@ export async function getGlobalCostMetrics(
     },
   });
 
-  const uniqueSessions = new Set(events.map((e) => e.sessionId));
+  const uniqueSessions = new Set(events.map((e: { sessionId: string }) => e.sessionId));
 
   const metrics: CostMetrics & { sessionCount: number } = {
     totalCalls: events.length,

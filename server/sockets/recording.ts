@@ -1,7 +1,4 @@
 import { Server, Socket } from "socket.io";
-import { PrismaClient } from "@prisma/client";
-import * as fs from "fs";
-import * as path from "path";
 import {
   StartSessionSchema,
   AudioChunkSchema,
@@ -10,10 +7,9 @@ import {
   StopSessionSchema,
   safeValidateSocketPayload,
 } from "../schemas/socket.schema";
-import { chunkLogger, sessionLogger, socketLogger } from "../utils/logger";
+import { sessionLogger, socketLogger, chunkLogger } from "../utils/logger";
 import { getBackpressureManager, removeBackpressureManager } from "../utils/backpressure";
 import {
-  authenticateSocket,
   checkSessionRateLimit,
   registerActiveSession,
   unregisterActiveSession,
@@ -21,14 +17,11 @@ import {
   chunkRateLimiter,
   RateLimitError,
 } from "../utils/rateLimiter";
-
-const prisma = new PrismaClient();
-
-const STORAGE_DIR = path.join(process.cwd(), "storage", "audio-chunks");
-
-if (!fs.existsSync(STORAGE_DIR)) {
-  fs.mkdirSync(STORAGE_DIR, { recursive: true });
-}
+import { sessionManager } from "../managers/SessionManager";
+import { chunkManager } from "../managers/ChunkManager";
+import { socketManager } from "../managers/SocketManager";
+import { finalizeSession } from "../processors/finalize";
+import { queueTranscription } from "../workers/transcription.worker";
 
 /**
  * Setup Socket.io event handlers for recording sessions
@@ -41,11 +34,10 @@ export function setupRecordingSockets(io: Server, socket: Socket) {
   });
 
   const backpressureManager = getBackpressureManager(socket.id);
-
-  // Authenticate socket on connection
   let authenticatedUserId: string | null = null;
 
-  authenticateSocket(socket).then((userId) => {
+  // Authenticate socket on connection (uses cookies)
+  socketManager.authenticate(socket).then((userId) => {
     authenticatedUserId = userId;
     if (!userId) {
       socket.emit("auth-error", { error: "Authentication required" });
@@ -53,11 +45,25 @@ export function setupRecordingSockets(io: Server, socket: Socket) {
     }
   });
 
+  // Join session room
+  socket.on("join", (room: string) => {
+    socket.join(room);
+    console.log(`[Socket] ${socket.id} joined room: ${room}`);
+  });
+
+  // Leave session room
+  socket.on("leave", (room: string) => {
+    socket.leave(room);
+    console.log(`[Socket] ${socket.id} left room: ${room}`);
+  });
+
+  // Start session
   socket.on("start-session", async (rawData: unknown) => {
     if (!authenticatedUserId) {
       socket.emit("session-error", { error: "Unauthorized" });
       return;
     }
+
     const validation = safeValidateSocketPayload(StartSessionSchema, rawData);
 
     if (!validation.success) {
@@ -88,33 +94,22 @@ export function setupRecordingSockets(io: Server, socket: Socket) {
       return;
     }
 
-    sessionLogger.started({
-      sessionId: data.sessionId,
-      userId: data.userId,
-      source: data.source,
-      title: data.title,
-    });
-
     try {
       // Check rate limits
       await checkSessionRateLimit(data.userId);
 
-      const sessionDir = path.join(STORAGE_DIR, data.sessionId);
-      if (!fs.existsSync(sessionDir)) {
-        fs.mkdirSync(sessionDir, { recursive: true });
-      }
-
-      const session = await prisma.recordingSession.create({
-        data: {
-          id: data.sessionId,
-          userId: data.userId,
-          title: data.title || `Recording - ${new Date().toLocaleString()}`,
-          status: "recording",
-          startedAt: new Date(),
-        },
+      // Create session using manager
+      const session = await sessionManager.createSession({
+        sessionId: data.sessionId,
+        userId: data.userId,
+        title: data.title || `Recording - ${new Date().toLocaleString()}`,
+        source: data.source || "mic",
       });
 
       registerActiveSession(data.userId, data.sessionId);
+
+      // Join socket room for this session
+      socket.join(`session:${data.sessionId}`);
 
       socket.emit("session-started", {
         sessionId: session.id,
@@ -142,6 +137,7 @@ export function setupRecordingSockets(io: Server, socket: Socket) {
     }
   });
 
+  // Audio chunk handler
   socket.on("audio-chunk", async (rawData: unknown) => {
     const chunkStartTime = Date.now();
 
@@ -155,6 +151,13 @@ export function setupRecordingSockets(io: Server, socket: Socket) {
       console.warn(`[Backpressure] Rejecting chunk from ${socket.id}`);
       return;
     }
+
+    // TEMPORARILY DISABLED BACKPRESSURE FOR TESTING
+    // if (!backpressureManager.canAccept()) {
+    //   socket.emit("backpressure", { canAccept: false });
+    //   console.warn(`[Backpressure] Rejecting chunk from ${socket.id}`);
+    //   return;
+    // }
 
     backpressureManager.incrementQueue();
 
@@ -189,6 +192,7 @@ export function setupRecordingSockets(io: Server, socket: Socket) {
     const data = validation.data;
 
     try {
+      // Verify ownership
       const ownsSession = await verifySessionOwnership(data.sessionId, authenticatedUserId);
       if (!ownsSession) {
         backpressureManager.decrementQueue();
@@ -196,116 +200,69 @@ export function setupRecordingSockets(io: Server, socket: Socket) {
         return;
       }
 
+      // Rate limiting
       if (!chunkRateLimiter.canAcceptChunk(data.sessionId)) {
         backpressureManager.decrementQueue();
         socket.emit("chunk-error", { error: "Chunk rate limit exceeded" });
         return;
       }
 
-      const existingChunk = await prisma.transcriptChunk.findUnique({
-        where: {
-          sessionId_seq: {
-            sessionId: data.sessionId,
-            seq: data.sequence,
-          },
-        },
-      });
+      // Process chunk using manager
+      // Socket.io may send audio as ArrayBuffer, Buffer, or Uint8Array
+      let audioBuffer: Buffer;
+      if (Buffer.isBuffer(data.audio)) {
+        audioBuffer = data.audio;
+      } else if (data.audio instanceof ArrayBuffer) {
+        audioBuffer = Buffer.from(data.audio);
+      } else if (data.audio.buffer && data.audio.buffer instanceof ArrayBuffer) {
+        // Uint8Array or similar
+        audioBuffer = Buffer.from(data.audio.buffer);
+      } else if (typeof data.audio === "object" && data.audio.data) {
+        // Socket.io may wrap it
+        audioBuffer = Buffer.from(data.audio.data);
+      } else {
+        throw new Error("Invalid audio data format");
+      }
 
-      if (existingChunk) {
-        console.log(`[Idempotency] Duplicate chunk: ${data.sessionId}/${data.sequence}`);
-
+      if (audioBuffer.length === 0) {
+        console.warn(`[AudioRecorder] Empty chunk received for session ${data.sessionId}`);
         backpressureManager.decrementQueue();
-
-        socket.emit("chunk-ack", {
-          sessionId: data.sessionId,
-          sequence: data.sequence,
-          timestamp: data.timestamp,
-          chunkId: existingChunk.id,
-          duplicate: true,
-          canAccept: backpressureManager.canAccept(),
-        });
         return;
       }
 
-      const session = await prisma.recordingSession.findUnique({
-        where: { id: data.sessionId },
-        select: { userId: true },
-      });
-
-      chunkLogger.received({
-        sessionId: data.sessionId,
-        sequence: data.sequence,
-        userId: session?.userId || "unknown",
-        size: data.size,
-        durationMs: 30000,
-        mimeType: data.mimeType,
-      });
-
-      const audioBuffer = Buffer.from(data.audio);
-
-      const filename = `${data.sessionId}_${data.sequence.toString().padStart(4, "0")}.webm`;
-      const sessionDir = path.join(STORAGE_DIR, data.sessionId);
-      const filePath = path.join(sessionDir, filename);
-
-      if (!fs.existsSync(sessionDir)) {
-        fs.mkdirSync(sessionDir, { recursive: true });
-      }
-
-      await fs.promises.writeFile(filePath, audioBuffer);
-
-      const chunk = await prisma.transcriptChunk.create({
-        data: {
+      const metadata = await chunkManager.processChunk(
+        {
           sessionId: data.sessionId,
-          seq: data.sequence,
-          audioPath: filePath,
-          durationMs: 30000,
-          status: "uploaded",
+          sequence: data.sequence,
+          timestamp: data.timestamp,
+          audioData: audioBuffer,
+          mimeType: data.mimeType,
         },
-      });
+        socket
+      );
 
-      const processingTime = Date.now() - chunkStartTime;
+      // Queue transcription worker
+      const { queueTranscription } = await import("../workers/transcription.worker");
 
-      chunkLogger.processed(data.sessionId, data.sequence, data.size, {
-        sessionId: data.sessionId,
-        sequence: data.sequence,
-        chunkId: chunk.id,
-        processingTimeMs: processingTime,
-        audioPath: filePath,
-      });
+      console.log(`[Recording] Queueing transcription for chunk ${data.sequence}`);
+      await queueTranscription(data.sessionId, data.sequence);
 
       backpressureManager.decrementQueue();
 
+      // Emit acknowledgment (already done in chunkManager, but include backpressure)
       socket.emit("chunk-ack", {
         sessionId: data.sessionId,
-        sequence: data.sequence,
-        timestamp: data.timestamp,
-        receivedAt: chunkStartTime,
-        processingTime,
-        bytesReceived: data.size,
-        chunkId: chunk.id,
-        duplicate: false,
+        ...metadata,
         canAccept: backpressureManager.canAccept(),
       });
     } catch (error) {
       backpressureManager.decrementQueue();
 
-      if ((error as any).code === "P2002") {
-        console.warn(`[Idempotency] Race condition for chunk ${data.sequence}`);
-        socket.emit("chunk-ack", {
-          sessionId: data.sessionId,
-          sequence: data.sequence,
-          timestamp: data.timestamp,
-          duplicate: true,
-          canAccept: backpressureManager.canAccept(),
-        });
-        return;
-      }
-
       chunkLogger.error({
         sessionId: data.sessionId,
         sequence: data.sequence,
         error: error instanceof Error ? error : new Error(String(error)),
-        userId: undefined,
+        userId: authenticatedUserId,
       });
 
       socket.emit("chunk-error", {
@@ -316,24 +273,34 @@ export function setupRecordingSockets(io: Server, socket: Socket) {
     }
   });
 
+  // Pause session
   socket.on("pause-session", async (rawData: unknown) => {
+    if (!authenticatedUserId) {
+      socket.emit("session-error", { error: "Unauthorized" });
+      return;
+    }
+
     const validation = safeValidateSocketPayload(PauseSessionSchema, rawData);
 
     if (!validation.success) {
+      socket.emit("session-error", { error: "Invalid pause data" });
       return;
     }
 
     const data = validation.data;
 
-    sessionLogger.paused({
-      sessionId: data.sessionId,
-      pausedAt: data.pausedAt,
-    });
-
     try {
+      const ownsSession = await verifySessionOwnership(data.sessionId, authenticatedUserId);
+      if (!ownsSession) {
+        socket.emit("session-error", { error: "Unauthorized" });
+        return;
+      }
+
+      await sessionManager.pauseSession(data.sessionId);
+
       socket.emit("session-paused", {
         sessionId: data.sessionId,
-        pausedAt: data.pausedAt,
+        pausedAt: new Date().toISOString(),
       });
     } catch (error) {
       sessionLogger.error({
@@ -341,27 +308,41 @@ export function setupRecordingSockets(io: Server, socket: Socket) {
         error: error instanceof Error ? error : new Error(String(error)),
         operation: "pause-session",
       });
+
+      socket.emit("session-error", {
+        error: "Failed to pause session",
+      });
     }
   });
 
+  // Resume session
   socket.on("resume-session", async (rawData: unknown) => {
+    if (!authenticatedUserId) {
+      socket.emit("session-error", { error: "Unauthorized" });
+      return;
+    }
+
     const validation = safeValidateSocketPayload(ResumeSessionSchema, rawData);
 
     if (!validation.success) {
+      socket.emit("session-error", { error: "Invalid resume data" });
       return;
     }
 
     const data = validation.data;
 
-    sessionLogger.resumed({
-      sessionId: data.sessionId,
-      resumedAt: data.resumedAt,
-    });
-
     try {
+      const ownsSession = await verifySessionOwnership(data.sessionId, authenticatedUserId);
+      if (!ownsSession) {
+        socket.emit("session-error", { error: "Unauthorized" });
+        return;
+      }
+
+      await sessionManager.resumeSession(data.sessionId);
+
       socket.emit("session-resumed", {
         sessionId: data.sessionId,
-        resumedAt: data.resumedAt,
+        resumedAt: new Date().toISOString(),
       });
     } catch (error) {
       sessionLogger.error({
@@ -369,55 +350,60 @@ export function setupRecordingSockets(io: Server, socket: Socket) {
         error: error instanceof Error ? error : new Error(String(error)),
         operation: "resume-session",
       });
+
+      socket.emit("session-error", {
+        error: "Failed to resume session",
+      });
     }
   });
 
+  // Stop session
   socket.on("stop-session", async (rawData: unknown) => {
+    if (!authenticatedUserId) {
+      socket.emit("session-error", { error: "Unauthorized" });
+      return;
+    }
+
     const validation = safeValidateSocketPayload(StopSessionSchema, rawData);
 
     if (!validation.success) {
+      socket.emit("session-error", { error: "Invalid stop data" });
       return;
     }
 
     const data = validation.data;
 
     try {
-      if (authenticatedUserId) {
-        const ownsSession = await verifySessionOwnership(data.sessionId, authenticatedUserId);
-        if (!ownsSession) {
-          socket.emit("session-error", { error: "Unauthorized: cannot stop session" });
-          return;
-        }
+      const ownsSession = await verifySessionOwnership(data.sessionId, authenticatedUserId);
+      if (!ownsSession) {
+        socket.emit("session-error", { error: "Unauthorized" });
+        return;
       }
 
-      await prisma.recordingSession.update({
-        where: { id: data.sessionId },
-        data: {
-          status: "stopped",
-          endedAt: new Date(),
-        },
-      });
-
-      if (authenticatedUserId) {
-        unregisterActiveSession(authenticatedUserId, data.sessionId);
-      }
-
-      sessionLogger.completed({
-        sessionId: data.sessionId,
-        userId: data.userId || "unknown",
-        totalChunks: 0,
-      });
-
+      // Emit stopped event immediately for UI
       socket.emit("session-stopped", {
         sessionId: data.sessionId,
-        status: "stopped",
-        endedAt: new Date(),
+        stoppedAt: new Date().toISOString(),
       });
 
-      const { finalizeSession } = await import("../processors/finalize");
-      finalizeSession(data.sessionId).catch((error) => {
-        console.error(`[Stop] Finalization failed for ${data.sessionId}:`, error);
-      });
+      // Wait 3 seconds before completing to allow final chunks to arrive
+      console.log(`[Stop] Waiting 3s for final chunks: ${data.sessionId}`);
+      const userId = authenticatedUserId; // Capture in closure
+      setTimeout(async () => {
+        try {
+          if (!userId) return;
+          await sessionManager.completeSession(data.sessionId, userId);
+          unregisterActiveSession(userId, data.sessionId);
+          console.log(`[Stop] Session completed after grace period: ${data.sessionId}`);
+
+          // Trigger finalization (summary generation, etc.)
+          finalizeSession(data.sessionId).catch((error) => {
+            console.error(`[Stop] Finalization failed for ${data.sessionId}:`, error);
+          });
+        } catch (error) {
+          console.error(`[Stop] Failed to complete session ${data.sessionId}:`, error);
+        }
+      }, 3000);
     } catch (error) {
       sessionLogger.error({
         sessionId: data.sessionId,
@@ -426,14 +412,17 @@ export function setupRecordingSockets(io: Server, socket: Socket) {
       });
 
       socket.emit("session-error", {
-        sessionId: data.sessionId,
         error: "Failed to stop session",
       });
     }
   });
 
+  // Disconnect handler
   socket.on("disconnect", (reason) => {
     socketLogger.disconnected(socket.id, reason);
+    socketManager.handleDisconnect(socket.id);
     removeBackpressureManager(socket.id);
+
+    // Cleanup handled by socketManager
   });
 }

@@ -15,7 +15,7 @@ export const AudioChunkSchema = z.object({
   timestamp: z.number().int().positive("Timestamp must be a positive integer"),
   size: z.number().int().positive("Size must be a positive integer"),
   mimeType: z.string().regex(/^audio\//, "MIME type must be an audio type"),
-  audio: z.instanceof(ArrayBuffer, { message: "Audio data must be an ArrayBuffer" }),
+  audio: z.any(),
 });
 
 export type AudioChunkPayload = z.infer<typeof AudioChunkSchema>;

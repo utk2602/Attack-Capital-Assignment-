@@ -16,18 +16,29 @@ interface TranscriptViewProps {
 }
 
 export function TranscriptView({ sessionId }: TranscriptViewProps) {
-  const socket = useSocket();
+  const { socket, isConnected } = useSocket({
+    autoConnect: false, // Don't auto-connect, we'll manage socket lifecycle manually
+  });
   const [segments, setSegments] = useState<TranscriptSegment[]>([]);
   const [autoScroll, setAutoScroll] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const hasJoinedRoom = useRef(false);
 
   useEffect(() => {
     if (!socket || !sessionId) return;
+    if (!isConnected) {
+      console.warn("[TranscriptView] Socket not connected yet, waiting...");
+      return;
+    }
+    if (hasJoinedRoom.current) return;
 
+    console.log(`[TranscriptView] Joining session room: ${sessionId}`);
+    hasJoinedRoom.current = true;
     socket.emit("join", `session:${sessionId}`);
 
     const handleTranscriptUpdate = (data: TranscriptSegment) => {
+      console.log(`[TranscriptView] Received transcript update:`, data);
       setSegments((prev) => {
         const existing = prev.findIndex((s) => s.sequence === data.sequence);
         if (existing >= 0) {
@@ -42,10 +53,14 @@ export function TranscriptView({ sessionId }: TranscriptViewProps) {
     socket.on("transcript-updated", handleTranscriptUpdate);
 
     return () => {
+      console.log(`[TranscriptView] Leaving session room: ${sessionId}`);
       socket.off("transcript-updated", handleTranscriptUpdate);
-      socket.emit("leave", `session:${sessionId}`);
+      if (isConnected) {
+        socket.emit("leave", `session:${sessionId}`);
+      }
+      hasJoinedRoom.current = false;
     };
-  }, [socket, sessionId]);
+  }, [socket, sessionId, isConnected]); // Add isConnected to dependencies
 
   useEffect(() => {
     if (autoScroll && bottomRef.current) {

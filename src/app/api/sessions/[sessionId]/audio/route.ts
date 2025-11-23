@@ -5,10 +5,12 @@ import * as path from "path";
 
 const prisma = new PrismaClient();
 
-
-export async function GET(request: NextRequest, { params }: { params: { sessionId: string } }) {
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ sessionId: string }> }
+) {
   try {
-    const { sessionId } = params;
+    const { sessionId } = await params;
 
     const session = await prisma.recordingSession.findUnique({
       where: { id: sessionId },
@@ -68,7 +70,6 @@ export async function GET(request: NextRequest, { params }: { params: { sessionI
 
     const combinedBuffer = Buffer.concat(chunkBuffers);
 
-    
     return new NextResponse(combinedBuffer, {
       status: 200,
       headers: {

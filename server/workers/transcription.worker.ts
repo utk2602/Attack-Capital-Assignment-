@@ -13,7 +13,6 @@ import { getIO } from "../server";
  */
 
 interface TranscriptionJobData {
-  chunkId: string;
   sessionId: string;
   sequence: number;
 }
@@ -26,12 +25,12 @@ export function initializeTranscriptionWorker() {
   console.log("[Worker] Initializing transcription worker...");
 
   transcriptionQueue.process(async (job) => {
-    const { chunkId, sessionId, sequence } = job.data;
+    const { sessionId, sequence } = job.data;
 
     try {
-      await processTranscription(chunkId, sessionId, sequence);
+      await processTranscription(sessionId, sequence);
     } catch (error) {
-      console.error(`[Worker] Failed to process chunk ${chunkId}:`, error);
+      console.error(`[Worker] Failed to process chunk ${sessionId}/${sequence}:`, error);
       throw error; // Re-throw to trigger retry
     }
   });
@@ -42,13 +41,8 @@ export function initializeTranscriptionWorker() {
 /**
  * Add a chunk to the transcription queue
  */
-export async function queueTranscription(
-  chunkId: string,
-  sessionId: string,
-  sequence: number
-): Promise<string> {
+export async function queueTranscription(sessionId: string, sequence: number): Promise<string> {
   const jobId = await transcriptionQueue.add({
-    chunkId,
     sessionId,
     sequence,
   });
@@ -60,31 +54,39 @@ export async function queueTranscription(
 
 /**
  * Main transcription processing function
+ *
+ * Orchestrates the transcription pipeline for a single audio chunk:
+ * 1. Retrieves chunk metadata from database
+ * 2. Converts audio format (WebM -> WAV)
+ * 3. Calls Gemini API for transcription
+ * 4. Updates database with transcript text and confidence
+ * 5. Emits socket events to notify clients
+ *
+ * @param sessionId - ID of the parent RecordingSession
+ * @param sequence - Sequential index of the chunk in the session
+ * @throws {Error} If chunk not found, conversion fails, or API errors
  */
-async function processTranscription(
-  chunkId: string,
-  sessionId: string,
-  sequence: number
-): Promise<void> {
+async function processTranscription(sessionId: string, sequence: number): Promise<void> {
   const startTime = Date.now();
 
-  console.log(
-    `[Worker] Starting transcription: chunk=${chunkId}, session=${sessionId}, seq=${sequence}`
-  );
+  console.log(`[Worker] Starting transcription: session=${sessionId}, seq=${sequence}`);
 
-  // Step 1: Fetch chunk record
-  const chunk = await db.transcriptChunk.findUnique({
-    where: { id: chunkId },
+  // Step 1: Fetch chunk record by sessionId and sequence
+  const chunk = await db.transcriptChunk.findFirst({
+    where: {
+      sessionId: sessionId,
+      seq: sequence,
+    },
     include: { session: true },
   });
 
   if (!chunk) {
-    throw new Error(`Chunk not found: ${chunkId}`);
+    throw new Error(`Chunk not found: ${sessionId}/${sequence}`);
   }
 
   // Step 2: Update status to processing
   await db.transcriptChunk.update({
-    where: { id: chunkId },
+    where: { id: chunk.id },
     data: { status: "processing" },
   });
 
@@ -127,7 +129,7 @@ async function processTranscription(
 
     // Step 6: Update database with results
     await db.transcriptChunk.update({
-      where: { id: chunkId },
+      where: { id: chunk.id },
       data: {
         text: result.text,
         speaker: result.speakers?.[0] || null,
@@ -141,20 +143,20 @@ async function processTranscription(
     chunkLogger.processed(sessionId, sequence, result.text.length, {
       sessionId,
       sequence,
-      chunkId,
+      chunkId: chunk.id,
       processingTimeMs: totalTime,
       audioPath: chunk.audioPath,
     });
 
     console.log(
-      `[Worker] Chunk processed successfully: chunk=${chunkId}, total=${totalTime}ms (conversion=${conversionTime}ms, transcription=${transcriptionTime}ms)`
+      `[Worker] Chunk processed successfully: chunk=${chunk.id}, total=${totalTime}ms (conversion=${conversionTime}ms, transcription=${transcriptionTime}ms)`
     );
 
     emitTranscriptUpdate(sessionId, {
       sequence,
       text: result.text,
       speaker: result.speakers?.[0],
-      chunkId,
+      chunkId: chunk.id,
     });
 
     // Step 8: Cleanup temporary WAV file
@@ -170,7 +172,7 @@ async function processTranscription(
   } catch (error) {
     // Update status to failed
     await db.transcriptChunk.update({
-      where: { id: chunkId },
+      where: { id: chunk.id },
       data: {
         status: "failed",
         // Store error message if schema supports it

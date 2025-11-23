@@ -1,10 +1,12 @@
 import { Socket } from "socket.io";
 import { prisma as db } from "@/lib/db";
-const MAX_CONCURRENT_SESSIONS_PER_USER = 2;
-const MAX_SESSIONS_PER_DAY = 10;
+// Rate limiting configuration
+// Adjust these values based on your needs
+const MAX_CONCURRENT_SESSIONS_PER_USER = process.env.NODE_ENV === "production" ? 2 : 5;
+const MAX_SESSIONS_PER_DAY = process.env.NODE_ENV === "production" ? 10 : 100; // Higher limit for development
 const SESSION_LIMIT_WINDOW_MS = 24 * 60 * 60 * 1000;
 
-const activeSessions = new Map<string, Set<string>>(); 
+const activeSessions = new Map<string, Set<string>>();
 
 export class RateLimitError extends Error {
   constructor(
@@ -87,7 +89,6 @@ export async function authenticateSocket(socket: Socket): Promise<string | null>
       console.warn(`[Auth] No token provided for socket ${socket.id}`);
       return null;
     }
-
 
     const userId = await validateAuthToken(token as string);
 

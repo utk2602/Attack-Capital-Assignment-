@@ -21,7 +21,6 @@ export interface MeetingSummary {
   participantCount: number;
 }
 
-
 const RETRY_CONFIG = {
   maxAttempts: 3,
   initialDelayMs: 1000,
@@ -72,7 +71,6 @@ export async function generateSummary(
   );
 }
 
-
 async function generateSummaryInternal(
   sessionId: string,
   fullTranscript: string
@@ -97,7 +95,7 @@ async function generateSummaryInternal(
   if (!apiKey) throw new Error("GEMINI_API_KEY required");
 
   const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
   const result = await model.generateContent(prompt);
   const summaryText = result.response.text() || "";
@@ -176,7 +174,6 @@ function parseSummaryJson(text: string): Omit<MeetingSummary, "duration" | "part
     };
   }
 }
-
 
 async function logSummaryAttempt(
   sessionId: string,

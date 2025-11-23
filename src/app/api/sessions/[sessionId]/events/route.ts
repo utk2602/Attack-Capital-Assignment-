@@ -5,7 +5,7 @@ export async function GET(req: Request, { params }: { params: { sessionId: strin
   const { sessionId } = params;
 
   try {
-    const events = await db.recordingEvent.findMany({
+    const events = await (db as any).recordingEvent.findMany({
       where: { sessionId },
       orderBy: { createdAt: "asc" },
       take: 1000,

@@ -20,6 +20,7 @@ export default function Home() {
   const [lastLatency, setLastLatency] = useState<number | null>(null);
   const latencySum = useRef(0);
   const latencyCount = useRef(0);
+  const activeSessionIdRef = useRef<string | null>(null); // Keep session ID for late chunks
 
   // Socket connection
   const {
@@ -34,7 +35,7 @@ export default function Home() {
     on,
     off,
   } = useSocket({
-    autoConnect: true,
+    autoConnect: !!session?.user,
   });
 
   // Listening to chhunks for calculation of latency
@@ -73,7 +74,7 @@ export default function Home() {
   }, [session, isPending, router]);
 
   const recorder = useAudioRecorder({
-    chunkDuration: 30000,
+    chunkDuration: 10000, // 10 seconds for faster testing
     onChunk: (chunkData) => {
       console.log(`Received audio chunk ${chunkData.sequence}:`, {
         size: chunkData.blob.size,
@@ -84,8 +85,11 @@ export default function Home() {
       setChunkCount(chunkData.sequence + 1);
       setBytesTransferred((prev) => prev + chunkData.blob.size);
 
-      if (sessionId) {
-        emitAudioChunk(sessionId, chunkData.sequence, chunkData.timestamp, chunkData.blob);
+      // Use ref to get session ID even if state was cleared
+      const currentSessionId = activeSessionIdRef.current;
+      if (currentSessionId) {
+        console.log(`Emitting chunk ${chunkData.sequence} to session ${currentSessionId}`);
+        emitAudioChunk(currentSessionId, chunkData.sequence, chunkData.timestamp, chunkData.blob);
       } else {
         console.warn("No session ID, chunk not sent");
       }
@@ -103,6 +107,7 @@ export default function Home() {
 
       if (newSessionId) {
         setSessionId(newSessionId);
+        activeSessionIdRef.current = newSessionId; // Store in ref too
         setChunkCount(0);
         setBytesTransferred(0);
         latencySum.current = 0;
@@ -112,6 +117,7 @@ export default function Home() {
         console.log("Recording started with session ID:", newSessionId);
       } else {
         console.error("Failed to start session");
+        alert("Failed to start session. Please check connection and try again.");
       }
     },
     onPause: () => {
@@ -131,8 +137,14 @@ export default function Home() {
       if (sessionId) {
         stopSession(sessionId);
         setCompletedSessionId(sessionId);
+
+        // Keep ref alive for 2 seconds to catch late-arriving chunks
+        setTimeout(() => {
+          console.log("Clearing active session ref");
+          activeSessionIdRef.current = null;
+        }, 2000);
       }
-      setSessionId(null);
+      setSessionId(null); // Clear state immediately to hide UI
     },
     onError: (error) => {
       console.error("Recording error:", error);
@@ -224,6 +236,27 @@ export default function Home() {
           )}
           {recorder.isRecording && (
             <>
+              {/* Live Transcript View - PROMINENT POSITION */}
+              {sessionId && (
+                <div className="mb-8">
+                  <div className="p-6 rounded-lg bg-white dark:bg-gray-800 shadow-lg border-2 border-brand-500">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
+                        <span className="relative flex h-3 w-3">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                        </span>
+                        Live Transcript
+                      </h3>
+                      <div className="text-sm text-gray-500 dark:text-gray-400">
+                        Transcribing in real-time...
+                      </div>
+                    </div>
+                    <TranscriptView sessionId={sessionId} />
+                  </div>
+                </div>
+              )}
+
               {/* Primary Stats */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                 <div className="p-6 rounded-lg bg-white dark:bg-gray-800 shadow-md text-center">
@@ -333,17 +366,6 @@ export default function Home() {
                     Recorded Audio
                   </h3>
                   <AudioPlayer sessionId={completedSessionId} />
-                </div>
-              )}
-
-              {/* Live Transcript View */}
-              {sessionId && (
-                <div className="mt-8">
-                  <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center gap-2">
-                    <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
-                    Live Transcript
-                  </h3>
-                  <TranscriptView sessionId={sessionId} />
                 </div>
               )}
 

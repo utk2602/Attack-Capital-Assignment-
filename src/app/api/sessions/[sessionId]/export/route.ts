@@ -28,9 +28,9 @@ export async function GET(req: Request, { params }: { params: { sessionId: strin
         seq: chunk.seq,
         text: chunk.text || "",
         speaker: chunk.speaker,
-        startTimeMs: chunk.seq * 5000, 
+        startTimeMs: chunk.seq * 5000,
         endTimeMs: (chunk.seq + 1) * 5000,
-        confidence: chunk.confidence,
+        confidence: chunk.confidence === null ? undefined : chunk.confidence,
       })),
       speakers: Array.from(
         new Set(session.chunks.map((c) => c.speaker).filter(Boolean))

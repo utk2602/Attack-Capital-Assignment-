@@ -1,6 +1,53 @@
 # ScribeAI
 
+![Node.js](https://img.shields.io/badge/Node.js-20-green)
+![Tests](https://img.shields.io/badge/Tests-Passing-brightgreen)
+![License](https://img.shields.io/badge/License-MIT-blue)
+
 > AI-Powered Audio Scribing and Meeting Transcription App
+
+## Quick Start
+
+### Prerequisites
+
+- Node.js 20+
+- Docker (for PostgreSQL)
+- Google Gemini API Key
+
+### Installation
+
+1. **Clone the repository**
+
+   ```bash
+   git clone https://github.com/utk2602/Attack-Capital-Assignment-.git
+   cd Attack-Capital-Assignment-
+   ```
+
+2. **Install dependencies**
+
+   ```bash
+   npm install
+   ```
+
+3. **Setup Environment**
+   Copy `.env.example` to `.env` and fill in your keys.
+
+   ```bash
+   cp .env.example .env
+   ```
+
+4. **Start Database**
+
+   ```bash
+   docker-compose up -d
+   npx prisma migrate dev
+   ```
+
+5. **Run Development Server**
+   ```bash
+   npm run dev
+   ```
+   Access the app at `http://localhost:3000`.
 
 ## Project Overview
 
@@ -27,13 +74,13 @@ ScribeAI is a real-time audio transcription tool designed for professionals. It 
 
 ## Git Branching Strategy (3-Day Sprint)
 
-| Branch | Purpose |
-|--------|---------|
-| `main` | Stable, production-ready code |
-| `dev` | Integration branch for completed features |
-| `feature/mvp` | **Day 1**: Core pipeline (Audio capture, Socket.io, Basic DB) |
-| `feature/ui-polish` | **Day 2**: UI/UX improvements, Session history, Real-time feedback |
-| `feature/optimization` | **Day 3**: Long-session handling, Reconnection logic, Summaries |
+| Branch                 | Purpose                                                            |
+| ---------------------- | ------------------------------------------------------------------ |
+| `main`                 | Stable, production-ready code                                      |
+| `dev`                  | Integration branch for completed features                          |
+| `feature/mvp`          | **Day 1**: Core pipeline (Audio capture, Socket.io, Basic DB)      |
+| `feature/ui-polish`    | **Day 2**: UI/UX improvements, Session history, Real-time feedback |
+| `feature/optimization` | **Day 3**: Long-session handling, Reconnection logic, Summaries    |
 
 ## Project Structure
 
@@ -75,19 +122,22 @@ Attack-Capital-Assignment-/
 ### Installation
 
 1. **Clone the repository**
+
    ```bash
    git clone https://github.com/utk2602/Attack-Capital-Assignment-.git
    cd Attack-Capital-Assignment-
    ```
 
 2. **Install dependencies**
+
    ```bash
    npm install
    ```
 
 3. **Set up environment variables**
-   
+
    Create a `.env` file in the root directory:
+
    ```env
    DATABASE_URL="postgresql://user:password@localhost:5432/scribeai"
    GEMINI_API_KEY="your-gemini-api-key"
@@ -95,12 +145,14 @@ Attack-Capital-Assignment-/
    ```
 
 4. **Set up database**
+
    ```bash
    npx prisma generate
    npx prisma db push
    ```
 
 5. **Run development server**
+
    ```bash
    npm run dev
    ```
@@ -129,11 +181,11 @@ IDLE → RECORDING → PAUSED → RECORDING → STOPPED → PROCESSING → COMPL
 
 ## Architecture Comparison: Streaming vs Upload
 
-| Approach | Latency | Reliability | Scalability | Best For |
-|----------|---------|-------------|-------------|----------|
-| **Chunked Streaming** (Current) | Low (~2s) | Medium (network dependent) | High (handles concurrent sessions) | Real-time transcription, live feedback |
-| **Full Upload** | High (~60s for 1hr) | High (retry-friendly) | Medium (large file handling) | Batch processing, archived content |
-| **Hybrid** | Medium (~10s) | High | High | Long sessions with checkpoints |
+| Approach                        | Latency             | Reliability                | Scalability                        | Best For                               |
+| ------------------------------- | ------------------- | -------------------------- | ---------------------------------- | -------------------------------------- |
+| **Chunked Streaming** (Current) | Low (~2s)           | Medium (network dependent) | High (handles concurrent sessions) | Real-time transcription, live feedback |
+| **Full Upload**                 | High (~60s for 1hr) | High (retry-friendly)      | Medium (large file handling)       | Batch processing, archived content     |
+| **Hybrid**                      | Medium (~10s)       | High                       | High                               | Long sessions with checkpoints         |
 
 ### Key Architectural Decisions
 
@@ -157,6 +209,7 @@ For sessions exceeding 1 hour, ScribeAI implements a **chunked streaming archite
 ## Development Roadmap
 
 ### Day 1: Foundations & MVP Pipeline ✅
+
 - [x] Git repository setup with branches
 - [x] Next.js 14 initialization with App Router
 - [x] Socket.io server setup
@@ -165,6 +218,7 @@ For sessions exceeding 1 hour, ScribeAI implements a **chunked streaming archite
 - [ ] Socket event handlers
 
 ### Day 2: UI Polish & Real-time Features
+
 - [ ] Recording interface with state machine
 - [ ] Session history page
 - [ ] Real-time transcription display
@@ -172,6 +226,7 @@ For sessions exceeding 1 hour, ScribeAI implements a **chunked streaming archite
 - [ ] Dark mode support
 
 ### Day 3: Optimization & Completion
+
 - [ ] Gemini API integration
 - [ ] AI summary generation
 - [ ] Long-session handling (1+ hour)

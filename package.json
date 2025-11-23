@@ -12,7 +12,10 @@
     "prisma:migrate": "prisma migrate dev --name init",
     "prisma:studio": "prisma studio",
     "prisma:seed": "ts-node --project prisma/tsconfig.json prisma/seed.ts",
-    "test": "vitest"
+    "test": "vitest",
+    "cleanup:old": "ts-node scripts/cleanup-sessions.ts old",
+    "cleanup:all": "ts-node scripts/cleanup-sessions.ts all",
+    "cleanup:user": "ts-node scripts/cleanup-sessions.ts user"
   },
   "prisma": {
     "seed": "ts-node --project prisma/tsconfig.json prisma/seed.ts"

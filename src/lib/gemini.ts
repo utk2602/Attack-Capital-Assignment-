@@ -41,7 +41,7 @@ class GeminiTranscriptionService {
     }
 
     this.genAI = new GoogleGenerativeAI(apiKey);
-    this.model = process.env.GEMINI_MODEL || "models/gemini-1.5-pro";
+    this.model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
     this.maxRetries = parseInt(process.env.GEMINI_MAX_RETRIES || "3", 10);
     this.timeoutMs = parseInt(process.env.GEMINI_TIMEOUT_MS || "30000", 10);
   }

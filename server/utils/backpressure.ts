@@ -1,5 +1,3 @@
-
-
 export class BackpressureManager {
   private queueSize = 0;
   private maxQueueSize: number;
@@ -13,11 +11,10 @@ export class BackpressureManager {
     maxSocketBuffer?: number;
   }) {
     this.maxQueueSize = options?.maxQueueSize || 10;
-    this.memoryThreshold = options?.memoryThreshold || 0.8; // 80%
+    this.memoryThreshold = options?.memoryThreshold || 0.98; // 98% - high threshold for development
     this.maxSocketBuffer = options?.maxSocketBuffer || 5 * 1024 * 1024; // 5 MB
   }
 
- 
   canAccept(): boolean {
     const queueOk = this.queueSize < this.maxQueueSize;
     const memoryOk = this.getMemoryUsage() < this.memoryThreshold;
@@ -42,7 +39,6 @@ export class BackpressureManager {
     this.queueSize++;
   }
 
- 
   decrementQueue(): void {
     this.queueSize = Math.max(0, this.queueSize - 1);
   }
@@ -51,13 +47,11 @@ export class BackpressureManager {
     return this.queueSize;
   }
 
-  
   private getMemoryUsage(): number {
     const usage = process.memoryUsage();
     return usage.heapUsed / usage.heapTotal;
   }
 
- 
   getMetrics(): {
     queueSize: number;
     maxQueue: number;
@@ -71,7 +65,6 @@ export class BackpressureManager {
       canAccept: this.canAccept(),
     };
   }
-
 
   reset(): void {
     this.queueSize = 0;

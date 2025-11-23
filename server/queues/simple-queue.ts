@@ -1,4 +1,3 @@
-
 interface Job<T> {
   id: string;
   data: T;
@@ -38,7 +37,6 @@ export class SimpleQueue<T = any> {
     };
   }
 
-
   process(handler: JobHandler<T>): void {
     this.handlers.push(handler);
     this.processQueue();
@@ -62,7 +60,6 @@ export class SimpleQueue<T = any> {
     return job.id;
   }
 
-  
   private async processQueue(): Promise<void> {
     if (this.handlers.length === 0) {
       return;
@@ -75,7 +72,7 @@ export class SimpleQueue<T = any> {
       this.processing.add(job.id);
       this.processJob(job).finally(() => {
         this.processing.delete(job.id);
-        this.processQueue(); 
+        this.processQueue();
       });
     }
   }
@@ -112,7 +109,7 @@ export class SimpleQueue<T = any> {
         console.log(`[Queue] Retrying job ${job.id} in ${delay}ms`);
 
         await this.sleep(delay);
-        this.queue.push(job); 
+        this.queue.push(job);
       } else {
         console.error(`[Queue] Job permanently failed after ${job.attempts} attempts: ${job.id}`);
         this.failedJobs.push(job);
@@ -122,10 +119,7 @@ export class SimpleQueue<T = any> {
 
   private calculateBackoff(job: Job<T>): number {
     if (this.options.exponentialBackoff) {
-      return Math.min(
-        job.backoffMs * Math.pow(2, job.attempts - 1),
-        30000 
-      );
+      return Math.min(job.backoffMs * Math.pow(2, job.attempts - 1), 30000);
     }
     return job.backoffMs;
   }
@@ -140,11 +134,9 @@ export class SimpleQueue<T = any> {
     };
   }
 
-
   getFailedJobs(): Job<T>[] {
     return [...this.failedJobs];
   }
-
 
   retryFailedJobs(): void {
     const failed = this.failedJobs.splice(0);
@@ -156,7 +148,6 @@ export class SimpleQueue<T = any> {
     this.processQueue();
   }
 
-
   clearCompleted(): void {
     this.completedJobs = [];
   }
@@ -165,14 +156,12 @@ export class SimpleQueue<T = any> {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
-
   private generateId(): string {
     return `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 }
 
 export const transcriptionQueue = new SimpleQueue<{
-  chunkId: string;
   sessionId: string;
   sequence: number;
 }>({

@@ -47,10 +47,10 @@ export function useSocket(options: UseSocketOptions = {}) {
   useEffect(() => {
     if (!autoConnect) return;
 
-    //  socket connection
+    // Socket connection - cookies will be sent automatically
     const socket = io(url, {
-      auth: token ? { token } : undefined,
       transports: ["websocket", "polling"],
+      withCredentials: true, // Important: This sends cookies with requests
     });
 
     socketRef.current = socket;
@@ -83,7 +83,6 @@ export function useSocket(options: UseSocketOptions = {}) {
     };
   }, [url, token, autoConnect]);
 
-  
   const processQueuedChunks = useCallback(async () => {
     if (isProcessingQueueRef.current || chunkQueueRef.current.length === 0) {
       return;
@@ -163,7 +162,6 @@ export function useSocket(options: UseSocketOptions = {}) {
     isProcessingQueueRef.current = false;
   }, []);
 
-  
   const emit = useCallback((event: string, data: any) => {
     if (!socketRef.current) {
       console.warn("Socket not connected");
@@ -188,16 +186,35 @@ export function useSocket(options: UseSocketOptions = {}) {
           return;
         }
 
-        const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const sessionId = crypto.randomUUID();
+
+        const onSessionStarted = (data: { sessionId: string }) => {
+          console.log(`Session started: ${data.sessionId}`);
+          cleanup();
+          resolve(data.sessionId);
+        };
+
+        const onSessionError = (data: { error: string; details?: string }) => {
+          console.error(`Session start failed: ${data.error}`, data.details);
+          cleanup();
+          resolve(null);
+        };
+
+        const cleanup = () => {
+          socketRef.current?.off("session-started", onSessionStarted);
+          socketRef.current?.off("session-error", onSessionError);
+        };
+
+        socketRef.current.on("session-started", onSessionStarted);
+        socketRef.current.on("session-error", onSessionError);
 
         socketRef.current.emit("start-session", { sessionId, userId, title });
 
-        socketRef.current.once("session-started", (data: { sessionId: string }) => {
-          console.log(`Session started: ${data.sessionId}`);
-          resolve(data.sessionId);
-        });
-
-        setTimeout(() => resolve(null), 5000);
+        setTimeout(() => {
+          console.warn("Session start timed out");
+          cleanup();
+          resolve(null);
+        }, 5000);
       });
     },
     []

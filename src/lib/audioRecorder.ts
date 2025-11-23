@@ -115,13 +115,22 @@ export async function startMicRecording(
   recorder.ondataavailable = (event) => {
     if (event.data.size > 0) {
       const timestamp = Date.now() - recordingStartTime;
+      console.log(`[AudioRecorder] Chunk ${sequence} ready: ${event.data.size} bytes`);
       onChunk({
         blob: event.data,
         sequence: sequence++,
         timestamp,
         duration: chunkDuration,
       });
+    } else {
+      console.warn(`[AudioRecorder] Empty chunk received`);
     }
+  };
+
+  // Handle recording stop - request final chunk
+  recorder.onstop = () => {
+    console.log(`[AudioRecorder] Recording stopped, requesting final data`);
+    // The ondataavailable will fire automatically with remaining data
   };
 
   // Handle errors
@@ -130,6 +139,7 @@ export async function startMicRecording(
   };
 
   // Start recording with time slicing (generates chunks every chunkDuration ms)
+  console.log(`[AudioRecorder] Starting MediaRecorder with ${chunkDuration}ms chunks`);
   recorder.start(chunkDuration);
 
   // Return control interface
@@ -138,6 +148,11 @@ export async function startMicRecording(
     recorder,
     stop: () => {
       if (recorder.state !== "inactive") {
+        console.log(`[AudioRecorder] Requesting final chunk before stop`);
+        // Request any remaining data before stopping
+        if (recorder.state === "recording") {
+          recorder.requestData();
+        }
         recorder.stop();
       }
       stream.getTracks().forEach((track) => track.stop());
@@ -236,13 +251,21 @@ export async function startTabRecording(
   recorder.ondataavailable = (event) => {
     if (event.data.size > 0) {
       const timestamp = Date.now() - recordingStartTime;
+      console.log(`[AudioRecorder:Tab] Chunk ${sequence} ready: ${event.data.size} bytes`);
       onChunk({
         blob: event.data,
         sequence: sequence++,
         timestamp,
         duration: chunkDuration,
       });
+    } else {
+      console.warn(`[AudioRecorder:Tab] Empty chunk received`);
     }
+  };
+
+  // Handle recording stop
+  recorder.onstop = () => {
+    console.log(`[AudioRecorder:Tab] Recording stopped`);
   };
 
   // Handle errors
@@ -261,6 +284,7 @@ export async function startTabRecording(
   });
 
   // Start recording with time slicing
+  console.log(`[AudioRecorder:Tab] Starting MediaRecorder with ${chunkDuration}ms chunks`);
   recorder.start(chunkDuration);
 
   // Return control interface
@@ -269,6 +293,11 @@ export async function startTabRecording(
     recorder,
     stop: () => {
       if (recorder.state !== "inactive") {
+        console.log(`[AudioRecorder:Tab] Requesting final chunk before stop`);
+        // Request any remaining data before stopping
+        if (recorder.state === "recording") {
+          recorder.requestData();
+        }
         recorder.stop();
       }
       stream.getTracks().forEach((track) => track.stop());
