@@ -1,5 +1,6 @@
 "use client";
 
+import React, { useEffect } from "react";
 import { Play, Pause, Square, Mic, Monitor } from "lucide-react";
 import { clsx } from "clsx";
 
@@ -33,6 +34,8 @@ export function RecordingControls({
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
+  // enable keyboard shortcuts
+  useRecordingKeyboardShortcuts(status, onStart, onPause, onResume, onStop);
   return (
     <div className="w-full max-w-2xl mx-auto space-y-6">
       {/* Status Indicator */}
@@ -60,6 +63,7 @@ export function RecordingControls({
         <button
           onClick={() => onSourceChange("mic")}
           disabled={status === "recording" || status === "processing"}
+          aria-label="Select microphone as audio source (disabled while recording)"
           className={clsx(
             "flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all",
             "disabled:opacity-50 disabled:cursor-not-allowed",
@@ -74,6 +78,7 @@ export function RecordingControls({
         <button
           onClick={() => onSourceChange("tab")}
           disabled={status === "recording" || status === "processing"}
+          aria-label="Select browser tab as audio source (disabled while recording)"
           className={clsx(
             "flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all",
             "disabled:opacity-50 disabled:cursor-not-allowed",
@@ -86,12 +91,16 @@ export function RecordingControls({
           Browser Tab
         </button>
       </div>
-
-      {/* Control Buttons */}
-      <div className="flex items-center justify-center gap-4">
+      <div
+        className="flex items-center justify-center gap-4"
+        role="group"
+        aria-label="Recording controls"
+      >
         {status === "idle" && (
           <button
             onClick={onStart}
+            aria-keyshortcuts="r"
+            aria-label="Start recording (R)"
             className="flex items-center gap-3 px-8 py-4 rounded-full bg-red-500 hover:bg-red-600 text-white font-semibold text-lg shadow-lg hover:shadow-xl transition-all transform hover:scale-105"
           >
             <Play className="w-6 h-6 fill-current" />
@@ -103,6 +112,8 @@ export function RecordingControls({
           <>
             <button
               onClick={onPause}
+              aria-keyshortcuts="p"
+              aria-label="Pause recording (P)"
               className="flex items-center gap-3 px-8 py-4 rounded-full bg-yellow-500 hover:bg-yellow-600 text-white font-semibold text-lg shadow-lg hover:shadow-xl transition-all"
             >
               <Pause className="w-6 h-6" />
@@ -110,6 +121,8 @@ export function RecordingControls({
             </button>
             <button
               onClick={onStop}
+              aria-keyshortcuts="s"
+              aria-label="Stop recording (S)"
               className="flex items-center gap-3 px-8 py-4 rounded-full bg-gray-700 hover:bg-gray-800 text-white font-semibold text-lg shadow-lg hover:shadow-xl transition-all"
             >
               <Square className="w-6 h-6" />
@@ -122,6 +135,8 @@ export function RecordingControls({
           <>
             <button
               onClick={onResume}
+              aria-keyshortcuts="r"
+              aria-label="Resume recording (R)"
               className="flex items-center gap-3 px-8 py-4 rounded-full bg-green-500 hover:bg-green-600 text-white font-semibold text-lg shadow-lg hover:shadow-xl transition-all"
             >
               <Play className="w-6 h-6 fill-current" />
@@ -129,6 +144,8 @@ export function RecordingControls({
             </button>
             <button
               onClick={onStop}
+              aria-keyshortcuts="s"
+              aria-label="Stop recording (S)"
               className="flex items-center gap-3 px-8 py-4 rounded-full bg-gray-700 hover:bg-gray-800 text-white font-semibold text-lg shadow-lg hover:shadow-xl transition-all"
             >
               <Square className="w-6 h-6" />
@@ -163,4 +180,31 @@ export function RecordingControls({
       </div>
     </div>
   );
+}
+
+// Keyboard bindings: R = Start/Resume, P = Pause, S = Stop
+export function useRecordingKeyboardShortcuts(
+  status: RecordingStatus,
+  onStart: () => void,
+  onPause: () => void,
+  onResume: () => void,
+  onStop: () => void
+) {
+  useEffect(() => {
+    function handler(e: KeyboardEvent) {
+      if (e.key === "r" || e.key === "R") {
+        if (status === "idle") onStart();
+        else if (status === "paused") onResume();
+      }
+      if (e.key === "p" || e.key === "P") {
+        if (status === "recording") onPause();
+      }
+      if (e.key === "s" || e.key === "S") {
+        if (status === "recording" || status === "paused") onStop();
+      }
+    }
+
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [status, onStart, onPause, onResume, onStop]);
 }

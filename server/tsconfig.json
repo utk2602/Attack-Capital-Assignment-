@@ -9,11 +9,12 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "moduleResolution": "node",
-    "baseUrl": ".",
+    "baseUrl": "..",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@/server/*": ["./server/*"]
     }
   },
-  "include": ["server/**/*"],
-  "exclude": ["node_modules"]
+  "include": ["**/*"],
+  "exclude": ["../node_modules", "../.next"]
 }

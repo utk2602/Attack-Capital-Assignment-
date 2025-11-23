@@ -1,9 +1,4 @@
-/**
- * API Route: Save audio chunk to local storage
- * POST /api/upload-chunk
- * Body: FormData with 'chunk' file, 'sessionId', 'seq'
- * Returns: { success, path }
- */
+
 import { NextRequest, NextResponse } from "next/server";
 import { saveAudioChunk } from "@/lib/storage";
 
@@ -21,11 +16,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Convert file to buffer
     const arrayBuffer = await chunk.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // Save to local storage
     const filepath = await saveAudioChunk(sessionId, seq, buffer);
 
     return NextResponse.json({
