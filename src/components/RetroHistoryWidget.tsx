@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { FileAudio, CheckCircle, Clock, AlertCircle } from "lucide-react";
+import { FileAudio, CheckCircle, Clock, AlertCircle, ArrowRight } from "lucide-react";
 import Link from "next/link";
 
 interface SessionPreview {
@@ -34,36 +34,37 @@ export function RetroHistoryWidget() {
     }
   };
 
-  if (loading) return <div className="p-4 font-bold">Loading history...</div>;
+  if (loading) return <div className="p-4 font-bold animate-pulse">LOADING DATA...</div>;
 
   return (
     <div className="h-full flex flex-col">
-      <h3 className="text-xl font-black mb-4 uppercase border-b-4 border-black dark:border-white pb-2">
+      <h3 className="text-xl font-black mb-6 uppercase border-b-4 border-black dark:border-white pb-2 flex items-center gap-2">
+        <span className="w-4 h-4 bg-retro-accent border-2 border-black"></span>
         Recent Transcripts
       </h3>
-      <div className="flex-1 overflow-y-auto space-y-3 pr-2">
+      <div className="flex-1 overflow-y-auto space-y-4 pr-2">
         {sessions.length === 0 ? (
-          <div className="text-gray-500 italic">No recordings yet.</div>
+          <div className="text-gray-500 font-bold border-2 border-dashed border-gray-400 p-4 text-center">
+            NO RECORDINGS FOUND.
+          </div>
         ) : (
           sessions.map((session) => (
             <Link
               key={session.id}
               href={`/sessions/${session.id}`}
-              className="block p-3 bg-white dark:bg-gray-800 border-4 border-black dark:border-gray-600 shadow-retro hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-retro-hover transition-all cursor-pointer"
+              className="block bg-white dark:bg-gray-900 border-4 border-black dark:border-white p-4 shadow-retro hover:shadow-retro-hover hover:translate-x-[2px] hover:translate-y-[2px] transition-all group"
             >
-              <div className="flex justify-between items-start mb-1">
-                <h4 className="font-bold truncate pr-2">{session.title || "Untitled Session"}</h4>
-                <span
-                  className={`text-xs font-bold px-1 border-2 border-black ${
-                    session.status === "completed" ? "bg-green-400" : "bg-yellow-400"
-                  }`}
-                >
-                  {session.status}
-                </span>
+              <div className="flex justify-between items-start mb-2">
+                <h4 className="font-bold truncate pr-2 group-hover:text-retro-primary transition-colors">
+                  {session.title || "Untitled Session"}
+                </h4>
+                <StatusIcon status={session.status} />
               </div>
-              <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
-                <Clock className="w-3 h-3" />
+              <div className="flex justify-between items-center text-xs font-bold text-gray-500 dark:text-gray-400">
                 <span>{new Date(session.startedAt).toLocaleDateString()}</span>
+                <span className="flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                  OPEN <ArrowRight className="w-3 h-3" />
+                </span>
               </div>
             </Link>
           ))
@@ -71,4 +72,17 @@ export function RetroHistoryWidget() {
       </div>
     </div>
   );
+}
+
+function StatusIcon({ status }: { status: string }) {
+  switch (status) {
+    case "completed":
+      return <CheckCircle className="w-5 h-5 text-green-500" />;
+    case "processing":
+      return <Clock className="w-5 h-5 text-yellow-500 animate-spin" />;
+    case "failed":
+      return <AlertCircle className="w-5 h-5 text-red-500" />;
+    default:
+      return <FileAudio className="w-5 h-5 text-gray-500" />;
+  }
 }
