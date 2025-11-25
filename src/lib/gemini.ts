@@ -20,7 +20,7 @@ interface TranscriptionOptions {
   enableDiarization?: boolean;
   temperature?: number;
   languageHint?: string;
-  timeout?: number; 
+  timeout?: number;
 }
 
 interface SummaryOptions {
@@ -47,25 +47,7 @@ class GeminiTranscriptionService {
     this.timeoutMs = parseInt(process.env.GEMINI_TIMEOUT_MS || "120000", 10); // Default 2 minutes
   }
 
-  /**
-   * Transcribe a single audio chunk with optional context
-   *
-   * @param sessionId - Recording session ID
-   * @param seq - Chunk sequence number
-   * @param audioPath - Path to audio file (WAV format)
-   * @param options - Transcription options
-   * @returns Promise with transcription result
-   *
-   * @example
-   * ```typescript
-   * const result = await gemini.transcribeChunk(
-   *   'session_abc123',
-   *   5,
-   *   './storage/session_abc123/chunk_5.wav',
-   *   { previousContext: 'The speaker was discussing...' }
-   * );
-   * ```
-   */
+  // transcribe audio chunk with context
   async transcribeChunk(
     sessionId: string,
     seq: number,
@@ -75,7 +57,7 @@ class GeminiTranscriptionService {
     const startTime = Date.now();
 
     try {
-      console.log(`[Gemini] Starting transcription: session=${sessionId}, seq=${seq}`);
+      console.log(`[Gemini] starting transcription: session=${sessionId}, seq=${seq}`);
 
       const audioBuffer = await fs.readFile(audioPath);
       const audioBase64 = audioBuffer.toString("base64");
@@ -142,7 +124,7 @@ class GeminiTranscriptionService {
           };
         } catch (error) {
           lastError = error as Error;
-          console.warn(`[Gemini] Attempt ${attempt}/${this.maxRetries} failed:`, error);
+          console.warn(`[Gemini] attempt ${attempt}/${this.maxRetries} failed:`, error);
 
           if (attempt < this.maxRetries) {
             const delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
@@ -155,20 +137,12 @@ class GeminiTranscriptionService {
         `Transcription failed after ${this.maxRetries} attempts: ${lastError?.message}`
       );
     } catch (error) {
-      console.error(`[Gemini] Transcription error: session=${sessionId}, seq=${seq}`, error);
+      console.error(`[Gemini] transcription error: session=${sessionId}, seq=${seq}`, error);
       throw error;
     }
   }
 
-  /**
-   * Transcribe audio from buffer (in-memory)
-   *
-   * @param sessionId - Recording session ID
-   * @param seq - Chunk sequence number
-   * @param audioBuffer - Audio data buffer (WAV format)
-   * @param options - Transcription options
-   * @returns Promise with transcription result
-   */
+  // transcribe from buffer insted of file
   async transcribeChunkFromBuffer(
     sessionId: string,
     seq: number,
@@ -298,26 +272,26 @@ class GeminiTranscriptionService {
       "**INSTRUCTIONS:**",
       "1. Transcribe what you hear word-for-word",
       "2. Remove filler words (um, uh, like, you know) unless they're meaningful",
-      "3. Fix obvious mistakes (\"I wan to\" → \"I want to\")",
+      '3. Fix obvious mistakes ("I wan to" → "I want to")',
       "4. Add basic punctuation for readability",
       "5. Keep the speaker's natural phrasing and vocabulary",
       "6. If audio is unclear, use [inaudible] - don't guess",
       "7. Just return the transcript text - no labels, no formatting, no bullet points",
       "",
       "**EXAMPLE:**",
-      "Audio: \"Hi, uh, so, um, I wanted to talk about the project timeline, uh, because we're a bit behind.\"",
-      "Transcript: \"Hi, so I wanted to talk about the project timeline because we're a bit behind.\"",
+      'Audio: "Hi, uh, so, um, I wanted to talk about the project timeline, uh, because we\'re a bit behind."',
+      'Transcript: "Hi, so I wanted to talk about the project timeline because we\'re a bit behind."',
       "",
       "**WHAT TO RETURN:**",
-      "✓ Clean, readable text of what was actually said",
-      "✓ Natural sentence structure with punctuation",
-      "✓ The speaker's exact words (just cleaned up)",
+      "- Clean, readable text of what was actually said",
+      "- Natural sentence structure with punctuation",
+      "- The speaker's exact words (just cleaned up)",
       "",
       "**WHAT NOT TO RETURN:**",
-      "❌ Don't summarize or paraphrase",
-      "❌ Don't add context or explanations",
-      "❌ Don't start with \"The speaker said...\" or \"Transcript:\"",
-      "❌ Don't use bullet points or structured formats",
+      "- Don't summarize or paraphrase",
+      "- Don't add context or explanations",
+      '- Don\'t start with "The speaker said..." or "Transcript:"',
+      "- Don't use bullet points or structured formats",
       "",
       "transcribe and summarise  THIS AUDIO:",
       "",

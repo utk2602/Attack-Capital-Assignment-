@@ -67,7 +67,7 @@ async function archiveAndCleanupSession(session: any): Promise<void> {
     data: { status: "archived" },
   });
 
-  console.log(`[Retention] ✅ Archived and cleaned up session: ${session.id}`);
+  console.log(`[Retention] archived and cleaned up session: ${session.id}`);
 }
 
 function createArchive(session: any, sourceDir: string, destPath: string): Promise<void> {

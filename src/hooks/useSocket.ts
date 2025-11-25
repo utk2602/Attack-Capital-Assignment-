@@ -137,7 +137,7 @@ export function useSocket(options: UseSocketOptions = {}) {
         );
         setQueuedChunks(chunkQueueRef.current.length);
 
-        console.log(`✅ Successfully sent queued chunk ${queuedChunk.sequence}`);
+        console.log(`successfully sent queued chunk ${queuedChunk.sequence}`);
       } catch (error) {
         console.error(`Failed to send queued chunk ${queuedChunk.sequence}:`, error);
 
@@ -149,7 +149,7 @@ export function useSocket(options: UseSocketOptions = {}) {
           chunkQueueRef.current[chunkIndex].retryCount += 1;
 
           if (chunkQueueRef.current[chunkIndex].retryCount >= 5) {
-            console.error(`❌ Giving up on chunk ${queuedChunk.sequence} after 5 retries`);
+            console.error(`giving up on chunk ${queuedChunk.sequence} after 5 retries`);
             chunkQueueRef.current.splice(chunkIndex, 1);
             setFailedChunks((prev) => prev + 1);
           }

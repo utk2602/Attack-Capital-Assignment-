@@ -39,7 +39,7 @@ export async function generateSummary(
     try {
       attempt++;
       console.log(
-        `[Summary] Attempt ${attempt}/${RETRY_CONFIG.maxAttempts} for session: ${sessionId}`
+        `[Summary] attempt ${attempt}/${RETRY_CONFIG.maxAttempts} for session: ${sessionId}`
       );
 
       const summary = await generateSummaryInternal(sessionId, fullTranscript);
@@ -49,7 +49,7 @@ export async function generateSummary(
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
 
-      console.error(`[Summary] Attempt ${attempt} failed:`, lastError.message);
+      console.error(`[Summary] attempt ${attempt} failed:`, lastError.message);
 
       await logSummaryAttempt(sessionId, attempt, false, lastError.message);
 
@@ -59,13 +59,13 @@ export async function generateSummary(
           RETRY_CONFIG.maxDelayMs
         );
 
-        console.log(`[Summary] Retrying in ${delay}ms...`);
+        console.log(`[Summary] retrying in ${delay}ms...`);
         await new Promise((resolve) => setTimeout(resolve, delay));
       }
     }
   }
 
-  console.error(`[Summary] Failed after ${RETRY_CONFIG.maxAttempts} attempts`);
+  console.error(`[Summary] failed after ${RETRY_CONFIG.maxAttempts} attempts`);
   throw new Error(
     `Summary generation failed after ${RETRY_CONFIG.maxAttempts} attempts: ${lastError?.message}`
   );
@@ -75,7 +75,7 @@ async function generateSummaryInternal(
   sessionId: string,
   fullTranscript: string
 ): Promise<MeetingSummary> {
-  console.log(`[Summary] Generating for session: ${sessionId}`);
+  console.log(`[Summary] generatng for session: ${sessionId}`);
 
   const chunks = await db.transcriptChunk.findMany({
     where: { sessionId },
@@ -162,7 +162,7 @@ function parseSummaryJson(text: string): Omit<MeetingSummary, "duration" | "part
       keyTimestamps: parsed.keyTimestamps || [],
     };
   } catch (error) {
-    console.error("[Summary] JSON parsing failed:", error);
+    console.error("[Summary] json parsing faild:", error);
     return {
       executiveSummary: text.slice(0, 300),
       keyPoints: [],
@@ -204,6 +204,6 @@ async function logSummaryAttempt(
       },
     });
   } catch (error) {
-    console.error("[Summary] Failed to log attempt:", error);
+    console.error("[Summary] faild to log attempt:", error);
   }
 }

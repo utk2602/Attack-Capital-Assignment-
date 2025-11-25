@@ -214,9 +214,7 @@ export default function SessionDetailPage({ params }: { params: Promise<{ sessio
               </span>
             </div>
             <div className="prose dark:prose-invert max-w-none">
-              <p className="text-base leading-relaxed whitespace-pre-wrap">
-                {session.transcript}
-              </p>
+              <p className="text-base leading-relaxed whitespace-pre-wrap">{session.transcript}</p>
             </div>
           </div>
         )}

@@ -1,35 +1,9 @@
-/**
- * Audio Recording Utilities
- *
- * This module provides utilities for capturing audio from:
- * 1. Microphone (getUserMedia)
- * 2. Browser Tab (getDisplayMedia)
- *
- * Features:
- * - Configurable chunk duration (default 10s)
- * - Automatic blob generation
- * - Error handling and fallbacks
- * - Stream cleanup
- */
+// audio recoreding utils for mic and browser tab
 
 export interface AudioRecorderOptions {
-  /**
-   * Duration of each audio chunk in milliseconds
-   * @default 30000 (30 seconds)
-   */
-  chunkDuration?: number;
-
-  /**
-   * MIME type for audio encoding
-   * @default "audio/webm;codecs=opus"
-   */
-  mimeType?: string;
-
-  /**
-   * Audio bitrate in bits per second
-   * @default 128000 (128 kbps)
-   */
-  audioBitsPerSecond?: number;
+  chunkDuration?: number; // chunk duraton in ms, defalt 30s
+  mimeType?: string; // audio encoding typ
+  audioBitsPerSecond?: number; // bitrate for audio
 }
 
 export interface AudioChunkData {
@@ -48,39 +22,21 @@ export interface AudioRecorderResult {
   getRecordingStartTime: () => number;
 }
 
-/**
- * Start recording audio from the user's microphone
- *
- * @param onChunk - Callback fired when a new audio chunk is ready
- * @param options - Recording configuration options
- * @returns Audio recorder controls and stream
- *
- * @example
- * ```ts
- * const recorder = await startMicRecording((chunkData) => {
- *   console.log(`Chunk ${chunkData.sequence} at ${chunkData.timestamp}ms`);
- *   // Upload blob to server
- * });
- *
- * // Later...
- * recorder.stop();
- * ```
- */
+// start mic recoreding with chunk callback
 export async function startMicRecording(
   onChunk: (chunkData: AudioChunkData) => void,
   options: AudioRecorderOptions = {}
 ): Promise<AudioRecorderResult> {
   const {
-    chunkDuration = 30000, // Default to 30 seconds
+    chunkDuration = 30000,
     mimeType = "audio/webm;codecs=opus",
     audioBitsPerSecond = 128000,
   } = options;
 
-  // Track recording start time for timestamping
   const recordingStartTime = Date.now();
   let sequence = 0;
 
-  // Request microphone access
+  // request mic acess
   let stream: MediaStream;
   try {
     stream = await navigator.mediaDevices.getUserMedia({
@@ -263,7 +219,7 @@ export async function startTabRecording(
       throw new Error("AUDIO_TRACK_NOT_LIVE");
     }
 
-    console.log(`[AudioRecorder:Tab] ✓ Audio track verified and ready`);
+    console.log(`[AudioRecorder:Tab] audio track verified and ready`);
   } catch (error) {
     if (error instanceof Error) {
       if (error.name === "NotAllowedError") {
