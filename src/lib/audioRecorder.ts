@@ -113,7 +113,8 @@ export async function startMicRecording(
 
   // Handle data available (chunk ready)
   recorder.ondataavailable = (event) => {
-    if (event.data.size > 0) {
+    // Filter out tiny/corrupt chunks (less than 1KB is likely corrupt)
+    if (event.data.size > 1000) {
       const timestamp = Date.now() - recordingStartTime;
       console.log(`[AudioRecorder] Chunk ${sequence} ready: ${event.data.size} bytes`);
       onChunk({
@@ -122,8 +123,8 @@ export async function startMicRecording(
         timestamp,
         duration: chunkDuration,
       });
-    } else {
-      console.warn(`[AudioRecorder] Empty chunk received`);
+    } else if (event.data.size > 0) {
+      console.warn(`[AudioRecorder] ⚠️ Skipping tiny/corrupt chunk (${event.data.size} bytes) - likely stop() artifact`);
     }
   };
 
@@ -148,11 +149,8 @@ export async function startMicRecording(
     recorder,
     stop: () => {
       if (recorder.state !== "inactive") {
-        console.log(`[AudioRecorder] Requesting final chunk before stop`);
-        // Request any remaining data before stopping
-        if (recorder.state === "recording") {
-          recorder.requestData();
-        }
+        console.log(`[AudioRecorder] Stopping recorder (no final chunk request to avoid corruption)`);
+        // DON'T call requestData() - it creates corrupt final chunks
         recorder.stop();
       }
       stream.getTracks().forEach((track) => track.stop());
@@ -235,22 +233,27 @@ export async function startTabRecording(
 
     // Check if audio track is present
     const audioTracks = stream.getAudioTracks();
-    console.log(`[AudioRecorder:Tab] Audio tracks:`, audioTracks.map(t => ({
-      label: t.label,
-      enabled: t.enabled,
-      muted: t.muted,
-      readyState: t.readyState,
-    })));
+    console.log(
+      `[AudioRecorder:Tab] Audio tracks:`,
+      audioTracks.map((t) => ({
+        label: t.label,
+        enabled: t.enabled,
+        muted: t.muted,
+        readyState: t.readyState,
+      }))
+    );
 
     if (audioTracks.length === 0) {
       // No audio track, fall back to microphone
-      console.warn("[AudioRecorder:Tab] Selected source has no audio. Falling back to microphone...");
+      console.warn(
+        "[AudioRecorder:Tab] Selected source has no audio. Falling back to microphone..."
+      );
       stream.getTracks().forEach((track) => track.stop());
       throw new Error("NO_AUDIO_IN_TAB");
     }
 
     // Verify audio track is active
-    if (audioTracks[0].readyState !== 'live') {
+    if (audioTracks[0].readyState !== "live") {
       console.warn("[AudioRecorder:Tab] Audio track not live. Falling back to microphone...");
       stream.getTracks().forEach((track) => track.stop());
       throw new Error("AUDIO_TRACK_NOT_LIVE");
@@ -280,23 +283,23 @@ export async function startTabRecording(
 
   // Handle data available (chunk ready)
   recorder.ondataavailable = (event) => {
-    if (event.data.size > 0) {
+    // Filter out tiny/corrupt chunks (less than 1KB is likely corrupt)
+    if (event.data.size > 1000) {
       const timestamp = Date.now() - recordingStartTime;
-      console.log(`[AudioRecorder:Tab] Chunk ${sequence} ready: ${event.data.size} bytes, type: ${event.data.type}`);
-      
-      // Verify this is actually audio data
-      if (event.data.size < 100) {
-        console.warn(`[AudioRecorder:Tab] ⚠️ Suspiciously small chunk (${event.data.size} bytes) - may be silence`);
-      }
-      
+      console.log(
+        `[AudioRecorder:Tab] Chunk ${sequence} ready: ${event.data.size} bytes, type: ${event.data.type}`
+      );
+
       onChunk({
         blob: event.data,
         sequence: sequence++,
         timestamp,
         duration: chunkDuration,
       });
-    } else {
-      console.warn(`[AudioRecorder:Tab] ⚠️ Empty chunk received at sequence ${sequence}`);
+    } else if (event.data.size > 0) {
+      console.warn(
+        `[AudioRecorder:Tab] ⚠️ Skipping tiny/corrupt chunk (${event.data.size} bytes) - likely stop() artifact`
+      );
     }
   };
 
@@ -330,11 +333,8 @@ export async function startTabRecording(
     recorder,
     stop: () => {
       if (recorder.state !== "inactive") {
-        console.log(`[AudioRecorder:Tab] Requesting final chunk before stop`);
-        // Request any remaining data before stopping
-        if (recorder.state === "recording") {
-          recorder.requestData();
-        }
+        console.log(`[AudioRecorder:Tab] Stopping recorder (no final chunk request to avoid corruption)`);
+        // DON'T call requestData() - it creates corrupt final chunks
         recorder.stop();
       }
       stream.getTracks().forEach((track) => track.stop());

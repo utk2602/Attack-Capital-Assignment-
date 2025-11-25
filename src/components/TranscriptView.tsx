@@ -93,25 +93,38 @@ export function TranscriptView({ sessionId }: TranscriptViewProps) {
                   <span className="font-bold">Gemini AI processing in background</span>
                 </div>
                 <div className="p-3 bg-gray-100 dark:bg-gray-800 border-2 border-gray-400">
-                  <p className="text-xs"><strong>Note:</strong> Real-time transcript will appear once first chunk is processed (~10 seconds)</p>
+                  <p className="text-xs">
+                    <strong>Note:</strong> Real-time transcript will appear once first chunk is
+                    processed (~10 seconds)
+                  </p>
                 </div>
               </div>
-              
+
               {/* System Audio Warning */}
               <div className="mt-4 p-4 bg-orange-100 dark:bg-orange-900/30 border-2 border-orange-500 text-left">
                 <p className="text-xs font-bold mb-2">⚠️ Recording Meeting Audio?</p>
                 <ul className="text-xs space-y-1 list-disc list-inside">
-                  <li><strong>Mic Source:</strong> Only captures your microphone, not meeting audio</li>
-                  <li><strong>Browser Tab Source:</strong> Captures tab audio (works for web meetings)</li>
-                  <li><strong>System Audio:</strong> Not supported directly by browser</li>
+                  <li>
+                    <strong>Mic Source:</strong> Only captures your microphone, not meeting audio
+                  </li>
+                  <li>
+                    <strong>Browser Tab Source:</strong> Captures tab audio (works for web meetings)
+                  </li>
+                  <li>
+                    <strong>System Audio:</strong> Not supported directly by browser
+                  </li>
                 </ul>
-                <p className="text-xs mt-2 font-bold">💡 Switch to "Browser Tab" source before joining meeting!</p>
+                <p className="text-xs mt-2 font-bold">
+                  💡 Switch to "Browser Tab" source before joining meeting!
+                </p>
               </div>
             </>
           ) : (
             <>
               <div className="text-6xl mb-4">📝</div>
-              <p className="text-gray-500 dark:text-gray-400 font-bold">Start recording to see real-time processing status</p>
+              <p className="text-gray-500 dark:text-gray-400 font-bold">
+                Start recording to see real-time processing status
+              </p>
             </>
           )}
         </div>
@@ -172,7 +185,7 @@ export function TranscriptView({ sessionId }: TranscriptViewProps) {
                 </span>
               </div>
             </div>
-            
+
             {/* Processing Status - Not the actual words */}
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-xs">
@@ -181,16 +194,20 @@ export function TranscriptView({ sessionId }: TranscriptViewProps) {
               </div>
               <div className="flex items-center gap-2 text-xs">
                 <span className="text-green-500 font-bold">✓</span>
-                <span className="font-bold">Gemini processing: {segment.text.length} characters extracted</span>
+                <span className="font-bold">
+                  Gemini processing: {segment.text.length} characters extracted
+                </span>
               </div>
               <div className="flex items-center gap-2 text-xs">
                 <span className="text-blue-500 font-bold">⚡</span>
                 <span className="font-bold">Content being analyzed for final transcript</span>
               </div>
-              
+
               {/* Preview snippet */}
               <div className="mt-3 p-2 bg-gray-100 dark:bg-black border-l-4 border-retro-primary">
-                <p className="text-xs font-bold text-gray-600 dark:text-gray-400 mb-1">Raw Content Preview:</p>
+                <p className="text-xs font-bold text-gray-600 dark:text-gray-400 mb-1">
+                  Raw Content Preview:
+                </p>
                 <p className="text-xs italic line-clamp-2">{segment.text.substring(0, 100)}...</p>
               </div>
             </div>
