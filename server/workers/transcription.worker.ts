@@ -78,7 +78,7 @@ async function processTranscription(sessionId: string, sequence: number): Promis
       sampleRate: 16000,
       channels: 1,
       applyFilters: false,
-      deleteSource: false
+      deleteSource: false,
     });
 
     const conversionTime = Date.now() - conversionStart;
