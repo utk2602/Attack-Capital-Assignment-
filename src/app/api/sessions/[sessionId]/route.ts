@@ -73,7 +73,7 @@ export async function GET(
       endedAt: recordingSession.endedAt?.toISOString() || null,
       duration,
       transcript: recordingSession.transcript,
-      summary: recordingSession.summaryJSON,
+      summaryJSON: recordingSession.summaryJSON,
       chunks: {
         items: chunks.map((chunk) => ({
           id: chunk.id,

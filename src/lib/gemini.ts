@@ -20,7 +20,7 @@ interface TranscriptionOptions {
   enableDiarization?: boolean;
   temperature?: number;
   languageHint?: string;
-  timeout?: number; // Custom timeout in milliseconds
+  timeout?: number; 
 }
 
 interface SummaryOptions {
@@ -117,11 +117,10 @@ class GeminiTranscriptionService {
           const response = await result.response;
           let text = response.text().trim();
 
-          // Limit transcript to 250 words maximum
           const words = text.split(/\s+/);
-          if (words.length > 250) {
+          if (words.length > 1000) {
             text =
-              words.slice(0, 250).join(" ") +
+              words.slice(0, 1000).join(" ") +
               " [Transcript limited to 250 words for optimal processing]";
           }
 
@@ -289,23 +288,38 @@ class GeminiTranscriptionService {
       return this.buildDiarizationPrompt(options);
     }
 
-    // Optimized prompt for single-chunk transcription with noisy audio handling
+    // Optimized prompt for clean verbatim transcription
     const parts: string[] = [
-      "You are a professional transcription service. Transcribe the audio EXACTLY as spoken.",
+      "You are a professional transcription service that produces clean, readable transcripts.",
       "",
-      "**CRITICAL RULES:**",
-      "1. Output ONLY the spoken words - NO explanations, NO commentary",
-      "2. If you cannot hear speech clearly, write [inaudible] - DO NOT guess",
-      "3. Use proper punctuation and capitalization",
-      "4. DO NOT include: audio descriptions, sound effects, or technical analysis",
-      "5. DO NOT start with phrases like 'The transcript is:' or 'Here is:'",
-      "6. If the audio is mostly noise with no clear speech, output: [No clear speech detected]",
+      "**YOUR TASK:**",
+      "Transcribe the audio EXACTLY as spoken, but clean it up to be readable.",
       "",
-      "Example of CORRECT output:",
-      "Hello everyone, welcome to today's meeting. Let's discuss the project timeline.",
+      "**INSTRUCTIONS:**",
+      "1. Transcribe what you hear word-for-word",
+      "2. Remove filler words (um, uh, like, you know) unless they're meaningful",
+      "3. Fix obvious mistakes (\"I wan to\" → \"I want to\")",
+      "4. Add basic punctuation for readability",
+      "5. Keep the speaker's natural phrasing and vocabulary",
+      "6. If audio is unclear, use [inaudible] - don't guess",
+      "7. Just return the transcript text - no labels, no formatting, no bullet points",
       "",
-      "Example of WRONG output:",
-      "The audio contains background noise. The speaker says: Hello everyone...",
+      "**EXAMPLE:**",
+      "Audio: \"Hi, uh, so, um, I wanted to talk about the project timeline, uh, because we're a bit behind.\"",
+      "Transcript: \"Hi, so I wanted to talk about the project timeline because we're a bit behind.\"",
+      "",
+      "**WHAT TO RETURN:**",
+      "✓ Clean, readable text of what was actually said",
+      "✓ Natural sentence structure with punctuation",
+      "✓ The speaker's exact words (just cleaned up)",
+      "",
+      "**WHAT NOT TO RETURN:**",
+      "❌ Don't summarize or paraphrase",
+      "❌ Don't add context or explanations",
+      "❌ Don't start with \"The speaker said...\" or \"Transcript:\"",
+      "❌ Don't use bullet points or structured formats",
+      "",
+      "transcribe and summarise  THIS AUDIO:",
       "",
     ];
 
@@ -351,20 +365,7 @@ class GeminiTranscriptionService {
       "- Remove obvious filler words (um, uh, like) unless they provide context",
       "",
       "Output Format (JSON array):",
-      "[",
-      "  {",
-      '    "speaker": "SPEAKER_1",',
-      '    "text": "transcribed text here",',
-      '    "start": 0.0,',
-      '    "end": 5.2',
-      "  },",
-      "  {",
-      '    "speaker": "SPEAKER_2",',
-      '    "text": "response text here",',
-      '    "start": 5.3,',
-      '    "end": 10.0',
-      "  }",
-      "]",
+      "just explain everything in a breif manner not needed to act in a very certain way just maintain decorum",
       "",
     ];
 

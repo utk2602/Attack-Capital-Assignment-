@@ -19,11 +19,18 @@ export async function finalizeSession(sessionId: string): Promise<void> {
     data: { status: "processing" },
   });
 
-  const pendingChunks = session.chunks.filter((c) => c.status !== "transcribed");
+  // Only wait for chunks that aren't permanently failed
+  const pendingChunks = session.chunks.filter((c) => c.status === "processing");
+  const failedChunks = session.chunks.filter((c) => c.status === "failed");
+  
   if (pendingChunks.length > 0) {
-    console.log(`[Finalize] Waiting for ${pendingChunks.length} pending chunks`);
-    setTimeout(() => finalizeSession(sessionId), 2000); // Reduced to 2s for faster completion
+    console.log(`[Finalize] Waiting for ${pendingChunks.length} pending chunks (${failedChunks.length} failed, skipping)`);
+    setTimeout(() => finalizeSession(sessionId), 2000);
     return;
+  }
+  
+  if (failedChunks.length > 0) {
+    console.log(`[Finalize] Skipping ${failedChunks.length} failed chunks, proceeding with successful ones`);
   }
 
   const aggregated = await mergeChunkTranscripts(sessionId);

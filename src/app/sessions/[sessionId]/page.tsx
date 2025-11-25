@@ -204,186 +204,36 @@ export default function SessionDetailPage({ params }: { params: Promise<{ sessio
           </div>
         )}
 
-        {/* Transcript - Third Person Narrative */}
+        {/* Transcript Section */}
         {session.transcript && (
           <div className="mb-6 p-6 bg-white dark:bg-gray-900 border-4 border-black dark:border-white shadow-retro">
             <div className="flex items-center justify-between mb-4 border-b-4 border-black dark:border-white pb-2">
-              <h3 className="text-xl font-black uppercase">🎙️ Content Analysis</h3>
-              <div className="flex gap-4 text-xs font-bold">
-                <span className="px-3 py-1 bg-green-400 border-2 border-black">
-                  ✓ GEMINI VERIFIED
-                </span>
-                <span className="px-3 py-1 bg-retro-accent border-2 border-black">
-                  {session.transcript.split(" ").filter((w) => w.length > 0).length} WORDS
-                </span>
-              </div>
-            </div>
-
-            {/* Third-person narrative summary */}
-            <div className="space-y-3">
-              <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500">
-                <p className="text-xs font-bold uppercase text-blue-700 dark:text-blue-300 mb-2">
-                  📋 Transcription Method
-                </p>
-                <p className="text-sm">
-                  The audio was processed using Gemini 2.5 Flash speech recognition with temporal
-                  context preservation.
-                </p>
-              </div>
-
-              <div className="p-4 bg-gray-50 dark:bg-black border-2 border-black dark:border-white">
-                <p className="text-xs font-bold uppercase mb-3 text-retro-primary">
-                  📝 Content Overview (Third Person)
-                </p>
-                <div className="space-y-2 text-sm leading-relaxed">
-                  {session.transcript
-                    .split(/[.!?]+/)
-                    .filter((s) => s.trim().length > 20)
-                    .slice(0, 8)
-                    .map((sentence, idx) => (
-                      <div key={idx} className="flex gap-2 items-start">
-                        <span className="font-bold text-retro-accent">•</span>
-                        <span>
-                          The speaker{" "}
-                          {sentence.trim().toLowerCase().startsWith("i ") ? "states" : "mentions"}{" "}
-                          that {sentence.trim().substring(0, 150)}
-                          {sentence.trim().length > 150 ? "..." : "."}
-                        </span>
-                      </div>
-                    ))}
-                </div>
-              </div>
-
-              {/* Raw transcript preview (collapsed) */}
-              <details className="p-3 bg-gray-100 dark:bg-gray-800 border-2 border-gray-400">
-                <summary className="cursor-pointer font-bold text-sm uppercase">
-                  📄 View Raw Transcript ({session.transcript.length} characters)
-                </summary>
-                <pre className="mt-3 text-xs whitespace-pre-wrap font-mono p-3 bg-white dark:bg-black border-2 border-gray-300">
-                  {session.transcript.substring(0, 2000)}...
-                </pre>
-              </details>
-            </div>
-
-            {/* Verification Badge */}
-            <div className="mt-4 p-3 bg-green-100 border-2 border-green-500 flex items-center gap-2">
-              <span className="text-xl">✅</span>
-              <span className="text-sm font-bold">
-                GEMINI TRANSCRIPTION VERIFIED - Audio successfully processed and analyzed
+              <h3 className="text-xl font-black uppercase">📝 Transcript</h3>
+              <span className="px-3 py-1 bg-retro-accent border-2 border-black text-xs font-bold">
+                {session.transcript.split(" ").filter((w) => w.length > 0).length} WORDS
               </span>
+            </div>
+            <div className="prose dark:prose-invert max-w-none">
+              <p className="text-base leading-relaxed whitespace-pre-wrap">
+                {session.transcript}
+              </p>
             </div>
           </div>
         )}
 
-        {/* Summary */}
-        {session.summaryJSON && (
-          <div className="p-6 bg-retro-secondary border-4 border-black shadow-retro">
-            <h3 className="text-xl font-black mb-4 uppercase">AI Summary</h3>
-            <div className="space-y-6">
-              {/* Executive Summary */}
-              {session.summaryJSON.executiveSummary && (
-                <div>
-                  <h4 className="font-bold mb-2 uppercase text-sm flex items-center gap-2">
-                    <span className="text-2xl">📋</span> Executive Summary:
-                  </h4>
-                  <p className="text-sm leading-relaxed bg-white dark:bg-black p-4 border-2 border-black dark:border-white">
-                    {session.summaryJSON.executiveSummary}
-                  </p>
-                </div>
-              )}
-
-              {/* Key Points */}
-              {session.summaryJSON.keyPoints && session.summaryJSON.keyPoints.length > 0 && (
-                <div>
-                  <h4 className="font-bold mb-2 uppercase text-sm flex items-center gap-2">
-                    <span className="text-2xl">💡</span> Key Points:
-                  </h4>
-                  <ul className="space-y-2">
-                    {session.summaryJSON.keyPoints.map((point: string, idx: number) => (
-                      <li
-                        key={idx}
-                        className="flex items-start gap-2 bg-white dark:bg-black p-3 border-2 border-black dark:border-white"
-                      >
-                        <span className="font-bold text-retro-primary">{idx + 1}.</span>
-                        <span className="text-sm">{point}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {/* Action Items */}
-              {session.summaryJSON.actionItems && session.summaryJSON.actionItems.length > 0 && (
-                <div>
-                  <h4 className="font-bold mb-2 uppercase text-sm flex items-center gap-2">
-                    <span className="text-2xl">✅</span> Action Items:
-                  </h4>
-                  <ul className="space-y-2">
-                    {session.summaryJSON.actionItems.map((item: any, idx: number) => (
-                      <li
-                        key={idx}
-                        className="bg-white dark:bg-black p-3 border-2 border-black dark:border-white"
-                      >
-                        <div className="flex items-start gap-2">
-                          <span className="font-bold text-retro-accent">→</span>
-                          <div className="flex-1">
-                            <p className="text-sm font-bold">{item.speaker || "Team"}</p>
-                            <p className="text-sm">{item.item}</p>
-                            {item.timestamp && (
-                              <p className="text-xs opacity-70 mt-1">⏱️ {item.timestamp}</p>
-                            )}
-                          </div>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {/* Decisions */}
-              {session.summaryJSON.decisions && session.summaryJSON.decisions.length > 0 && (
-                <div>
-                  <h4 className="font-bold mb-2 uppercase text-sm flex items-center gap-2">
-                    <span className="text-2xl">🎯</span> Decisions Made:
-                  </h4>
-                  <ul className="space-y-2">
-                    {session.summaryJSON.decisions.map((decision: any, idx: number) => (
-                      <li
-                        key={idx}
-                        className="bg-white dark:bg-black p-3 border-2 border-black dark:border-white"
-                      >
-                        <p className="text-sm">{decision.decision}</p>
-                        {decision.timestamp && (
-                          <p className="text-xs opacity-70 mt-1">⏱️ {decision.timestamp}</p>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {/* Key Timestamps */}
-              {session.summaryJSON.keyTimestamps &&
-                session.summaryJSON.keyTimestamps.length > 0 && (
-                  <div>
-                    <h4 className="font-bold mb-2 uppercase text-sm flex items-center gap-2">
-                      <span className="text-2xl">⏰</span> Key Timestamps:
-                    </h4>
-                    <ul className="space-y-2">
-                      {session.summaryJSON.keyTimestamps.map((ts: any, idx: number) => (
-                        <li
-                          key={idx}
-                          className="flex items-start gap-3 bg-white dark:bg-black p-3 border-2 border-black dark:border-white"
-                        >
-                          <span className="font-bold text-retro-primary text-xs bg-retro-accent px-2 py-1 border-2 border-black">
-                            {ts.time}
-                          </span>
-                          <span className="text-sm flex-1">{ts.event}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
+        {/* Summary Section */}
+        {session.summaryJSON && session.summaryJSON.executiveSummary && (
+          <div className="mb-6 p-6 bg-white dark:bg-gray-900 border-4 border-black dark:border-white shadow-retro">
+            <div className="flex items-center justify-between mb-4 border-b-4 border-black dark:border-white pb-2">
+              <h3 className="text-xl font-black uppercase">📊 Summary</h3>
+              <span className="px-3 py-1 bg-retro-accent border-2 border-black text-xs font-bold">
+                AI GENERATED
+              </span>
+            </div>
+            <div className="prose dark:prose-invert max-w-none">
+              <p className="text-base leading-relaxed whitespace-pre-wrap">
+                {session.summaryJSON.executiveSummary}
+              </p>
             </div>
           </div>
         )}
