@@ -49,9 +49,16 @@ export function RecordingControls({
               "bg-blue-500 animate-pulse": status === "processing",
             })}
           />
-          <span className="text-lg font-black uppercase tracking-tight">
-            {status === "idle" ? "Ready" : status}
-          </span>
+          <div>
+            <span className="text-lg font-black uppercase tracking-tight block">
+              {status === "idle" ? "Ready" : status}
+            </span>
+            {status === "recording" && (
+              <span className="text-xs font-bold text-gray-600 dark:text-gray-400">
+                {audioSource === "mic" ? "🎤 Microphone Active" : "🌐 Browser Tab Audio"}
+              </span>
+            )}
+          </div>
         </div>
         {status !== "idle" && (
           <span className="text-2xl font-black font-mono">{formatDuration(duration)}</span>
@@ -165,16 +172,46 @@ export function RecordingControls({
       {/* Help Text */}
       <div className="text-center text-sm font-bold uppercase tracking-wide">
         {status === "idle" && audioSource === "mic" && (
-          <p>Click "Start" to capture audio from your microphone</p>
+          <div className="space-y-2">
+            <p>Click "Start" to capture audio from your microphone</p>
+            <div className="text-xs p-3 bg-orange-100 dark:bg-orange-900/30 border-2 border-orange-500 mt-2">
+              <p className="font-bold">⚠️ For Meeting Audio:</p>
+              <p>Switch to "Browser Tab" source to capture web meeting audio!</p>
+              <p className="mt-1">(Microphone only records YOUR voice, not the meeting)</p>
+            </div>
+          </div>
         )}
         {status === "idle" && audioSource === "tab" && (
-          <p>Click "Start" and select a browser tab to capture its audio</p>
+          <div className="space-y-2">
+            <p>Click "Start" and select a browser tab to capture its audio</p>
+            <div className="text-xs p-3 bg-green-100 dark:bg-green-900/30 border-2 border-green-500 mt-2">
+              <p className="font-bold">✓ Meeting Audio Mode</p>
+              <p>This will capture audio from Google Meet, Zoom, Teams, etc.</p>
+              <p className="mt-1">Select the meeting tab when prompted!</p>
+            </div>
+          </div>
         )}
-        {status === "recording" && <p>Recording in progress... Click "Pause" or "Stop"</p>}
+        {status === "recording" && (
+          <div className="space-y-2">
+            <p>Recording in progress... Click "Pause" or "Stop"</p>
+            <div className="text-xs p-3 bg-blue-100 dark:bg-blue-900/30 border-2 border-blue-500 mt-2">
+              <p className="font-bold">📊 Processing metadata in real-time</p>
+              <p>Formatted transcript will be available after stopping</p>
+            </div>
+          </div>
+        )}
         {status === "paused" && (
           <p>Recording paused. Click "Resume" to continue or "Stop" to finish</p>
         )}
-        {status === "processing" && <p>Processing your recording... Please wait</p>}
+        {status === "processing" && (
+          <div className="space-y-2">
+            <p>Processing your recording... Please wait</p>
+            <div className="text-xs p-3 bg-purple-100 dark:bg-purple-900/30 border-2 border-purple-500 mt-2">
+              <p className="font-bold">🤖 Generating formatted transcript with AI</p>
+              <p>Creating concise point-by-point summary...</p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

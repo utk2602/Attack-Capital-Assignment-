@@ -209,23 +209,54 @@ export async function startTabRecording(
 
   try {
     // Request display media with audio
+    // CRITICAL: video must be true for audio to work with getDisplayMedia
     stream = await navigator.mediaDevices.getDisplayMedia({
       audio: {
         echoCancellation: true,
         noiseSuppression: true,
         sampleRate: 48000,
-      } as any, // Type assertion needed for audio constraints
-      video: false as any, // We only want audio, but some browsers require video: true
+        autoGainControl: true,
+      } as any,
+      video: true, // MUST be true for browser tab audio capture
+    });
+
+    console.log(`[AudioRecorder:Tab] Stream obtained. Tracks:`, {
+      audio: stream.getAudioTracks().length,
+      video: stream.getVideoTracks().length,
+    });
+
+    // Remove video track if present (we only want audio)
+    const videoTracks = stream.getVideoTracks();
+    videoTracks.forEach((track) => {
+      console.log(`[AudioRecorder:Tab] Removing video track: ${track.label}`);
+      track.stop();
+      stream.removeTrack(track);
     });
 
     // Check if audio track is present
     const audioTracks = stream.getAudioTracks();
+    console.log(`[AudioRecorder:Tab] Audio tracks:`, audioTracks.map(t => ({
+      label: t.label,
+      enabled: t.enabled,
+      muted: t.muted,
+      readyState: t.readyState,
+    })));
+
     if (audioTracks.length === 0) {
       // No audio track, fall back to microphone
-      console.warn("Selected tab has no audio. Falling back to microphone...");
+      console.warn("[AudioRecorder:Tab] Selected source has no audio. Falling back to microphone...");
       stream.getTracks().forEach((track) => track.stop());
-      return startMicRecording(onChunk, options);
+      throw new Error("NO_AUDIO_IN_TAB");
     }
+
+    // Verify audio track is active
+    if (audioTracks[0].readyState !== 'live') {
+      console.warn("[AudioRecorder:Tab] Audio track not live. Falling back to microphone...");
+      stream.getTracks().forEach((track) => track.stop());
+      throw new Error("AUDIO_TRACK_NOT_LIVE");
+    }
+
+    console.log(`[AudioRecorder:Tab] ✓ Audio track verified and ready`);
   } catch (error) {
     if (error instanceof Error) {
       if (error.name === "NotAllowedError") {
@@ -251,7 +282,13 @@ export async function startTabRecording(
   recorder.ondataavailable = (event) => {
     if (event.data.size > 0) {
       const timestamp = Date.now() - recordingStartTime;
-      console.log(`[AudioRecorder:Tab] Chunk ${sequence} ready: ${event.data.size} bytes`);
+      console.log(`[AudioRecorder:Tab] Chunk ${sequence} ready: ${event.data.size} bytes, type: ${event.data.type}`);
+      
+      // Verify this is actually audio data
+      if (event.data.size < 100) {
+        console.warn(`[AudioRecorder:Tab] ⚠️ Suspiciously small chunk (${event.data.size} bytes) - may be silence`);
+      }
+      
       onChunk({
         blob: event.data,
         sequence: sequence++,
@@ -259,7 +296,7 @@ export async function startTabRecording(
         duration: chunkDuration,
       });
     } else {
-      console.warn(`[AudioRecorder:Tab] Empty chunk received`);
+      console.warn(`[AudioRecorder:Tab] ⚠️ Empty chunk received at sequence ${sequence}`);
     }
   };
 
