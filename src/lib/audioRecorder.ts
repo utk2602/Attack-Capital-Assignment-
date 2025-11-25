@@ -124,7 +124,9 @@ export async function startMicRecording(
         duration: chunkDuration,
       });
     } else if (event.data.size > 0) {
-      console.warn(`[AudioRecorder] ⚠️ Skipping tiny/corrupt chunk (${event.data.size} bytes) - likely stop() artifact`);
+      console.warn(
+        `[AudioRecorder] ⚠️ Skipping tiny/corrupt chunk (${event.data.size} bytes) - likely stop() artifact`
+      );
     }
   };
 
@@ -149,7 +151,9 @@ export async function startMicRecording(
     recorder,
     stop: () => {
       if (recorder.state !== "inactive") {
-        console.log(`[AudioRecorder] Stopping recorder (no final chunk request to avoid corruption)`);
+        console.log(
+          `[AudioRecorder] Stopping recorder (no final chunk request to avoid corruption)`
+        );
         // DON'T call requestData() - it creates corrupt final chunks
         recorder.stop();
       }
@@ -333,7 +337,9 @@ export async function startTabRecording(
     recorder,
     stop: () => {
       if (recorder.state !== "inactive") {
-        console.log(`[AudioRecorder:Tab] Stopping recorder (no final chunk request to avoid corruption)`);
+        console.log(
+          `[AudioRecorder:Tab] Stopping recorder (no final chunk request to avoid corruption)`
+        );
         // DON'T call requestData() - it creates corrupt final chunks
         recorder.stop();
       }
