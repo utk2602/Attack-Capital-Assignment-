@@ -477,7 +477,7 @@ MIT License - See LICENSE file
 
 ## 👨‍💻 Author
 
-**Utkarsh Sharma**  
+**Utkarsh**  
 GitHub: [@utk2602](https://github.com/utk2602)  
 Assignment: AttackCapital AI Scribing App  
 Date: November 2025
