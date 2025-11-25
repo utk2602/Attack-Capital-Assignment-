@@ -25,15 +25,10 @@ export function RetroThemeToggle() {
   return (
     <button
       onClick={toggleTheme}
-      className="relative w-16 h-8 bg-retro-border dark:bg-white rounded-none border-2 border-black transition-colors duration-200 ease-in-out focus:outline-none shadow-retro active:shadow-retro-hover active:translate-x-[2px] active:translate-y-[2px]"
+      className="p-2 bg-white dark:bg-black border-4 border-black dark:border-white shadow-retro hover:shadow-retro-hover hover:translate-x-[2px] hover:translate-y-[2px] active:shadow-none active:translate-x-[4px] active:translate-y-[4px] transition-all"
+      aria-label="Toggle Theme"
     >
-      <div
-        className={`absolute top-0.5 left-0.5 w-6 h-6 bg-retro-accent border-2 border-black transition-transform duration-200 ease-in-out flex items-center justify-center ${
-          isDark ? "translate-x-8" : "translate-x-0"
-        }`}
-      >
-        {isDark ? <Moon className="w-4 h-4 text-black" /> : <Sun className="w-4 h-4 text-black" />}
-      </div>
+      {isDark ? <Sun className="w-6 h-6 text-white" /> : <Moon className="w-6 h-6 text-black" />}
     </button>
   );
 }
