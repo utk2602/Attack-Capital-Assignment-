@@ -48,7 +48,7 @@ export function RetroLanding() {
           </h1>
 
           <p className="text-xl md:text-2xl font-bold text-gray-800 dark:text-gray-300 bg-white dark:bg-gray-900 border-4 border-black dark:border-white p-6 shadow-retro max-w-2xl mx-auto transform rotate-1 hover:rotate-0 transition-transform duration-300">
-            The brutalist audio transcription tool for the modern web. 
+            The brutalist audio transcription tool for the modern web.
             <span className="block mt-2 text-retro-primary">No fluff. Just text.</span>
           </p>
 
@@ -94,7 +94,10 @@ export function RetroLanding() {
         </div>
 
         {/* Features Grid */}
-        <div id="features" className="max-w-6xl px-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div
+          id="features"
+          className="max-w-6xl px-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
+        >
           <FeatureCard
             icon={<Mic className="w-8 h-8" />}
             title="Live Recording"
@@ -118,24 +121,32 @@ export function RetroLanding() {
 
       {/* Footer */}
       <footer className="w-full p-8 border-t-4 border-black dark:border-white bg-white dark:bg-black text-center z-10">
-        <p className="font-bold text-black dark:text-white">
-          © 2025 SCRIBE.AI // BUILT FOR SPEED
-        </p>
+        <p className="font-bold text-black dark:text-white">© 2025 SCRIBE.AI // BUILT FOR SPEED</p>
       </footer>
     </div>
   );
 }
 
-function FeatureCard({ icon, title, description, color }: { icon: React.ReactNode; title: string; description: string; color: string }) {
+function FeatureCard({
+  icon,
+  title,
+  description,
+  color,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  color: string;
+}) {
   return (
     <div className="bg-white dark:bg-gray-900 border-4 border-black dark:border-white p-6 shadow-retro hover:shadow-retro-hover hover:translate-x-[2px] hover:translate-y-[2px] transition-all group">
-      <div className={`w-16 h-16 ${color} border-4 border-black flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
+      <div
+        className={`w-16 h-16 ${color} border-4 border-black flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}
+      >
         {icon}
       </div>
       <h3 className="text-2xl font-black mb-2 uppercase">{title}</h3>
-      <p className="text-gray-600 dark:text-gray-400 font-medium leading-relaxed">
-        {description}
-      </p>
+      <p className="text-gray-600 dark:text-gray-400 font-medium leading-relaxed">{description}</p>
     </div>
   );
 }

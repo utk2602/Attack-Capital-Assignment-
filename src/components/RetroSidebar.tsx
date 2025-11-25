@@ -52,7 +52,7 @@ export function RetroSidebar({ activeTab, onTabChange, userEmail }: RetroSidebar
         <div className="flex justify-center md:justify-start">
           <RetroThemeToggle />
         </div>
-        
+
         {userEmail && (
           <div className="hidden md:block text-xs font-bold truncate px-2 py-1 bg-gray-100 dark:bg-gray-800 border-2 border-black dark:border-gray-600">
             {userEmail}
@@ -71,7 +71,19 @@ export function RetroSidebar({ activeTab, onTabChange, userEmail }: RetroSidebar
   );
 }
 
-function NavButton({ active, onClick, icon, label, color }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string; color: string }) {
+function NavButton({
+  active,
+  onClick,
+  icon,
+  label,
+  color,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  label: string;
+  color: string;
+}) {
   return (
     <button
       onClick={onClick}

@@ -886,3 +886,15 @@
 {"event":"socket_connected","handshake":"::1","level":"info","message":"Socket connected","service":"scribeai-server","socketId":"9K-UIq8rARR_8ogyAAAH","timestamp":"2025-11-25 18:51:50"}
 {"event":"socket_disconnected","level":"info","message":"Socket disconnected","reason":"client namespace disconnect","service":"scribeai-server","socketId":"9K-UIq8rARR_8ogyAAAH","timestamp":"2025-11-25 18:53:01"}
 {"event":"socket_disconnected","level":"info","message":"Socket disconnected","reason":"cleanup","service":"scribeai-server","socketId":"9K-UIq8rARR_8ogyAAAH","timestamp":"2025-11-25 18:53:01"}
+{"event":"socket_connected","handshake":"::1","level":"info","message":"Socket connected","service":"scribeai-server","socketId":"mwnJK7wPJ0De-T5yAAAJ","timestamp":"2025-11-25 19:01:35"}
+{"event":"socket_disconnected","level":"info","message":"Socket disconnected","reason":"client namespace disconnect","service":"scribeai-server","socketId":"mwnJK7wPJ0De-T5yAAAJ","timestamp":"2025-11-25 19:01:42"}
+{"event":"socket_disconnected","level":"info","message":"Socket disconnected","reason":"cleanup","service":"scribeai-server","socketId":"mwnJK7wPJ0De-T5yAAAJ","timestamp":"2025-11-25 19:01:42"}
+{"event":"socket_connected","handshake":"::1","level":"info","message":"Socket connected","service":"scribeai-server","socketId":"zHWD5dVAe9sfjh7VAAAM","timestamp":"2025-11-25 19:01:47"}
+{"event":"socket_disconnected","level":"info","message":"Socket disconnected","reason":"client namespace disconnect","service":"scribeai-server","socketId":"zHWD5dVAe9sfjh7VAAAM","timestamp":"2025-11-25 19:01:54"}
+{"event":"socket_disconnected","level":"info","message":"Socket disconnected","reason":"cleanup","service":"scribeai-server","socketId":"zHWD5dVAe9sfjh7VAAAM","timestamp":"2025-11-25 19:01:54"}
+{"event":"socket_connected","handshake":"::1","level":"info","message":"Socket connected","service":"scribeai-server","socketId":"MRnMF-6-hiFbxeNTAAAP","timestamp":"2025-11-25 19:01:56"}
+{"event":"socket_disconnected","level":"info","message":"Socket disconnected","reason":"transport close","service":"scribeai-server","socketId":"MRnMF-6-hiFbxeNTAAAP","timestamp":"2025-11-25 19:01:57"}
+{"event":"socket_disconnected","level":"info","message":"Socket disconnected","reason":"cleanup","service":"scribeai-server","socketId":"MRnMF-6-hiFbxeNTAAAP","timestamp":"2025-11-25 19:01:57"}
+{"event":"socket_connected","handshake":"::1","level":"info","message":"Socket connected","service":"scribeai-server","socketId":"Cq2VX7qDDnCtad7JAAAR","timestamp":"2025-11-25 19:02:00"}
+{"event":"socket_disconnected","level":"info","message":"Socket disconnected","reason":"client namespace disconnect","service":"scribeai-server","socketId":"Cq2VX7qDDnCtad7JAAAR","timestamp":"2025-11-25 19:02:02"}
+{"event":"socket_disconnected","level":"info","message":"Socket disconnected","reason":"cleanup","service":"scribeai-server","socketId":"Cq2VX7qDDnCtad7JAAAR","timestamp":"2025-11-25 19:02:02"}

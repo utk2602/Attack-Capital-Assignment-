@@ -28,11 +28,7 @@ export function RetroThemeToggle() {
       className="p-2 bg-white dark:bg-black border-4 border-black dark:border-white shadow-retro hover:shadow-retro-hover hover:translate-x-[2px] hover:translate-y-[2px] active:shadow-none active:translate-x-[4px] active:translate-y-[4px] transition-all"
       aria-label="Toggle Theme"
     >
-      {isDark ? (
-        <Sun className="w-6 h-6 text-white" />
-      ) : (
-        <Moon className="w-6 h-6 text-black" />
-      )}
+      {isDark ? <Sun className="w-6 h-6 text-white" /> : <Moon className="w-6 h-6 text-black" />}
     </button>
   );
 }
