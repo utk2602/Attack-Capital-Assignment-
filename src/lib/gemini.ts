@@ -20,6 +20,7 @@ interface TranscriptionOptions {
   enableDiarization?: boolean;
   temperature?: number;
   languageHint?: string;
+  timeout?: number;
 }
 
 interface SummaryOptions {
@@ -43,28 +44,10 @@ class GeminiTranscriptionService {
     this.genAI = new GoogleGenerativeAI(apiKey);
     this.model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
     this.maxRetries = parseInt(process.env.GEMINI_MAX_RETRIES || "3", 10);
-    this.timeoutMs = parseInt(process.env.GEMINI_TIMEOUT_MS || "30000", 10);
+    this.timeoutMs = parseInt(process.env.GEMINI_TIMEOUT_MS || "120000", 10); // Default 2 minutes
   }
 
-  /**
-   * Transcribe a single audio chunk with optional context
-   *
-   * @param sessionId - Recording session ID
-   * @param seq - Chunk sequence number
-   * @param audioPath - Path to audio file (WAV format)
-   * @param options - Transcription options
-   * @returns Promise with transcription result
-   *
-   * @example
-   * ```typescript
-   * const result = await gemini.transcribeChunk(
-   *   'session_abc123',
-   *   5,
-   *   './storage/session_abc123/chunk_5.wav',
-   *   { previousContext: 'The speaker was discussing...' }
-   * );
-   * ```
-   */
+  // transcribe audio chunk with context
   async transcribeChunk(
     sessionId: string,
     seq: number,
@@ -74,7 +57,7 @@ class GeminiTranscriptionService {
     const startTime = Date.now();
 
     try {
-      console.log(`[Gemini] Starting transcription: session=${sessionId}, seq=${seq}`);
+      console.log(`[Gemini] starting transcription: session=${sessionId}, seq=${seq}`);
 
       const audioBuffer = await fs.readFile(audioPath);
       const audioBase64 = audioBuffer.toString("base64");
@@ -88,6 +71,7 @@ class GeminiTranscriptionService {
       let lastError: Error | null = null;
       for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
         try {
+          const timeoutMs = options.timeout || this.timeoutMs;
           const result = await Promise.race([
             model.generateContent({
               contents: [
@@ -109,11 +93,22 @@ class GeminiTranscriptionService {
                 maxOutputTokens: 2048,
               },
             }),
-            this.createTimeout(),
+            this.createTimeout(timeoutMs),
           ]);
 
           const response = await result.response;
-          const text = response.text().trim();
+          let text = response.text().trim();
+
+          const words = text.split(/\s+/);
+          if (words.length > 1000) {
+            text =
+              words.slice(0, 1000).join(" ") +
+              " [Transcript limited to 250 words for optimal processing]";
+          }
+
+          // Clean up common Gemini artifacts
+          text = this.cleanTranscriptText(text);
+
           const speakers = options.enableDiarization ? this.extractSpeakers(text) : undefined;
 
           const processingTimeMs = Date.now() - startTime;
@@ -129,7 +124,7 @@ class GeminiTranscriptionService {
           };
         } catch (error) {
           lastError = error as Error;
-          console.warn(`[Gemini] Attempt ${attempt}/${this.maxRetries} failed:`, error);
+          console.warn(`[Gemini] attempt ${attempt}/${this.maxRetries} failed:`, error);
 
           if (attempt < this.maxRetries) {
             const delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
@@ -142,20 +137,12 @@ class GeminiTranscriptionService {
         `Transcription failed after ${this.maxRetries} attempts: ${lastError?.message}`
       );
     } catch (error) {
-      console.error(`[Gemini] Transcription error: session=${sessionId}, seq=${seq}`, error);
+      console.error(`[Gemini] transcription error: session=${sessionId}, seq=${seq}`, error);
       throw error;
     }
   }
 
-  /**
-   * Transcribe audio from buffer (in-memory)
-   *
-   * @param sessionId - Recording session ID
-   * @param seq - Chunk sequence number
-   * @param audioBuffer - Audio data buffer (WAV format)
-   * @param options - Transcription options
-   * @returns Promise with transcription result
-   */
+  // transcribe from buffer insted of file
   async transcribeChunkFromBuffer(
     sessionId: string,
     seq: number,
@@ -275,40 +262,56 @@ class GeminiTranscriptionService {
       return this.buildDiarizationPrompt(options);
     }
 
-    // Optimized prompt for single-chunk transcription with noisy audio handling
+    // Optimized prompt for clean verbatim transcription
     const parts: string[] = [
-      "You are a highly accurate speech-to-text assistant.",
+      "You are a professional transcription service that produces clean, readable transcripts.",
       "",
-      "**Important Context:**",
-      "- The audio may contain background noise, various accents, and environmental sounds",
-      "- Some sections may be unclear or have poor audio quality",
-      "- Focus on extracting clear, intelligible speech only",
+      "**YOUR TASK:**",
+      "Transcribe the audio EXACTLY as spoken, but clean it up to be readable.",
       "",
-      "Instructions:",
-      "- Transcribe the audio word-for-word with correct punctuation and capitalization",
-      "- Output ONLY the transcript text",
-      "- Do not add commentary, explanations, or hallucinate content not in the audio",
-      "- If speech is garbled or unintelligible due to noise, mark as [inaudible]",
-      "- Remove obvious filler words (um, uh, like, you know) unless they provide context",
-      "- Do not guess at unclear words - prefer [inaudible] over incorrect transcription",
-      "- Use proper sentence structure and paragraph breaks for readability",
+      "**INSTRUCTIONS:**",
+      "1. Transcribe what you hear word-for-word",
+      "2. Remove filler words (um, uh, like, you know) unless they're meaningful",
+      '3. Fix obvious mistakes ("I wan to" → "I want to")',
+      "4. Add basic punctuation for readability",
+      "5. Keep the speaker's natural phrasing and vocabulary",
+      "6. If audio is unclear, use [inaudible] - don't guess",
+      "7. Just return the transcript text - no labels, no formatting, no bullet points",
+      "",
+      "**EXAMPLE:**",
+      'Audio: "Hi, uh, so, um, I wanted to talk about the project timeline, uh, because we\'re a bit behind."',
+      'Transcript: "Hi, so I wanted to talk about the project timeline because we\'re a bit behind."',
+      "",
+      "**WHAT TO RETURN:**",
+      "- Clean, readable text of what was actually said",
+      "- Natural sentence structure with punctuation",
+      "- The speaker's exact words (just cleaned up)",
+      "",
+      "**WHAT NOT TO RETURN:**",
+      "- Don't summarize or paraphrase",
+      "- Don't add context or explanations",
+      '- Don\'t start with "The speaker said..." or "Transcript:"',
+      "- Don't use bullet points or structured formats",
+      "",
+      "transcribe and summarise  THIS AUDIO:",
+      "",
     ];
 
     if (options.previousContext) {
       parts.push(
+        "Previous segment ended with:",
+        `\"${options.previousContext.slice(-200)}...\"`,
         "",
-        "Context from previous audio:",
-        `\"${options.previousContext}\"`,
-        "",
-        "Continue transcribing seamlessly from this context."
+        "Continue seamlessly from where it left off.",
+        ""
       );
     }
 
     if (options.languageHint) {
-      parts.push("", `Language: ${options.languageHint}`);
+      parts.push(`Expected language: ${options.languageHint}`, "");
     }
 
-    parts.push("", "Transcribe the audio below:");
+    parts.push("NOW TRANSCRIBE THE AUDIO:");
 
     return parts.join("\n");
   }
@@ -336,20 +339,7 @@ class GeminiTranscriptionService {
       "- Remove obvious filler words (um, uh, like) unless they provide context",
       "",
       "Output Format (JSON array):",
-      "[",
-      "  {",
-      '    "speaker": "SPEAKER_1",',
-      '    "text": "transcribed text here",',
-      '    "start": 0.0,',
-      '    "end": 5.2',
-      "  },",
-      "  {",
-      '    "speaker": "SPEAKER_2",',
-      '    "text": "response text here",',
-      '    "start": 5.3,',
-      '    "end": 10.0',
-      "  }",
-      "]",
+      "just explain everything in a breif manner not needed to act in a very certain way just maintain decorum",
       "",
     ];
 
@@ -403,6 +393,32 @@ class GeminiTranscriptionService {
     return Array.from(new Set(matches)).sort();
   }
 
+  private cleanTranscriptText(text: string): string {
+    // Remove common artifacts from Gemini responses
+    const artifacts = [
+      /^(The transcript is:|Here is the transcript:|Transcript:|Audio transcript:)\s*/i,
+      /^(Here's what was said:|The audio contains:|The speaker says:)\s*/i,
+      /^\*\*Transcript:\*\*\s*/i,
+      /^```[\w]*\n/, // Remove code block start
+      /\n```$/, // Remove code block end
+    ];
+
+    let cleaned = text;
+    for (const pattern of artifacts) {
+      cleaned = cleaned.replace(pattern, "");
+    }
+
+    // Remove empty lines at start/end
+    cleaned = cleaned.trim();
+
+    // If result is empty or just [inaudible], return as-is
+    if (!cleaned || cleaned === "[inaudible]" || cleaned === "[No clear speech detected]") {
+      return cleaned;
+    }
+
+    return cleaned;
+  }
+
   private extractKeyPoints(summary: string): string[] {
     const lines = summary.split("\n");
     const keyPoints: string[] = [];
@@ -425,11 +441,12 @@ class GeminiTranscriptionService {
     return keyPoints;
   }
 
-  private createTimeout(): Promise<never> {
+  private createTimeout(timeoutMs?: number): Promise<never> {
+    const timeout = timeoutMs || this.timeoutMs;
     return new Promise((_, reject) => {
       setTimeout(() => {
-        reject(new Error(`Request timeout after ${this.timeoutMs}ms`));
-      }, this.timeoutMs);
+        reject(new Error(`Request timeout after ${timeout}ms`));
+      }, timeout);
     });
   }
 

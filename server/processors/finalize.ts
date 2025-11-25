@@ -19,15 +19,25 @@ export async function finalizeSession(sessionId: string): Promise<void> {
     data: { status: "processing" },
   });
 
-  const pendingChunks = session.chunks.filter((c) => c.status !== "transcribed");
+  // skip failed chunks, only wait for processing
+  const pendingChunks = session.chunks.filter((c) => c.status === "processing");
+  const failedChunks = session.chunks.filter((c) => c.status === "failed");
+
   if (pendingChunks.length > 0) {
-    console.log(`[Finalize] Waiting for ${pendingChunks.length} pending chunks`);
-    setTimeout(() => finalizeSession(sessionId), 5000);
+    console.log(
+      `[Finalize] waiting for ${pendingChunks.length} chunks (${failedChunks.length} failed)`
+    );
+    setTimeout(() => finalizeSession(sessionId), 2000);
     return;
+  }
+
+  if (failedChunks.length > 0) {
+    console.log(`[Finalize] skipping ${failedChunks.length} failed chunks`);
   }
 
   const aggregated = await mergeChunkTranscripts(sessionId);
 
+  // diarization for longer sessions
   if (session.chunks.length >= 5) {
     await refineSpeakerDiarization(sessionId);
   }
@@ -56,5 +66,5 @@ export async function finalizeSession(sessionId: string): Promise<void> {
     downloadUrl: `/api/sessions/${sessionId}/download`,
   });
 
-  console.log(`[Finalize] Session completed: ${sessionId}`);
+  console.log(`[Finalize] sesion completed: ${sessionId}`);
 }

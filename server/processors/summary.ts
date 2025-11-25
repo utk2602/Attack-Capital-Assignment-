@@ -39,7 +39,7 @@ export async function generateSummary(
     try {
       attempt++;
       console.log(
-        `[Summary] Attempt ${attempt}/${RETRY_CONFIG.maxAttempts} for session: ${sessionId}`
+        `[Summary] attempt ${attempt}/${RETRY_CONFIG.maxAttempts} for session: ${sessionId}`
       );
 
       const summary = await generateSummaryInternal(sessionId, fullTranscript);
@@ -49,7 +49,7 @@ export async function generateSummary(
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
 
-      console.error(`[Summary] Attempt ${attempt} failed:`, lastError.message);
+      console.error(`[Summary] attempt ${attempt} failed:`, lastError.message);
 
       await logSummaryAttempt(sessionId, attempt, false, lastError.message);
 
@@ -59,13 +59,13 @@ export async function generateSummary(
           RETRY_CONFIG.maxDelayMs
         );
 
-        console.log(`[Summary] Retrying in ${delay}ms...`);
+        console.log(`[Summary] retrying in ${delay}ms...`);
         await new Promise((resolve) => setTimeout(resolve, delay));
       }
     }
   }
 
-  console.error(`[Summary] Failed after ${RETRY_CONFIG.maxAttempts} attempts`);
+  console.error(`[Summary] failed after ${RETRY_CONFIG.maxAttempts} attempts`);
   throw new Error(
     `Summary generation failed after ${RETRY_CONFIG.maxAttempts} attempts: ${lastError?.message}`
   );
@@ -75,7 +75,7 @@ async function generateSummaryInternal(
   sessionId: string,
   fullTranscript: string
 ): Promise<MeetingSummary> {
-  console.log(`[Summary] Generating for session: ${sessionId}`);
+  console.log(`[Summary] generatng for session: ${sessionId}`);
 
   const chunks = await db.transcriptChunk.findMany({
     where: { sessionId },
@@ -100,7 +100,14 @@ async function generateSummaryInternal(
   const result = await model.generateContent(prompt);
   const summaryText = result.response.text() || "";
 
-  const summary = parseSummaryJson(summaryText);
+  // New format: Plain text narrative, not JSON
+  const summary = {
+    executiveSummary: summaryText.trim(),
+    keyPoints: [], // No longer used
+    actionItems: [], // No longer used
+    decisions: [], // No longer used
+    keyTimestamps: [], // No longer used
+  };
 
   return {
     ...summary,
@@ -110,43 +117,34 @@ async function generateSummaryInternal(
 }
 
 function buildSummaryPrompt(transcript: string, speakerCount: number, durationMin: number): string {
-  return `You are an AI meeting assistant. Analyze this ${durationMin}-minute transcript with ${speakerCount} participants and generate a comprehensive summary.
+  return `You are an intelligent meeting analyst helping someone who missed a ${durationMin}-minute conversation understand what happened.
 
-**Important Context:**
-- The audio may contain background noise, various accents, and environmental sounds
-- Some sections may be unclear or unintelligible
-- Focus on extracting clear, actionable information
-- If speech is garbled or background noise interferes, mark as [inaudible] or omit
-- Remove obvious filler words (um, uh, like) unless they provide meaningful context
+**YOUR TASK:**
+Read the transcript and explain the meeting in a natural, conversational way - as if you're briefing a colleague who wasn't there.
 
-**Transcript:**
+**TRANSCRIPT:**
 ${transcript.slice(0, 8000)}${transcript.length > 8000 ? "..." : ""}
 
-**Your Task:**
-1. **Executive Summary** (3-5 sentences): High-level overview of meeting purpose and outcomes.
-2. **Key Points** (5-8 bullet points): Main discussion topics and themes.
-3. **Action Items**: Extract specific tasks assigned to speakers with timestamps if mentioned.
-4. **Decisions**: Identify concrete decisions made during the meeting.
-5. **Key Timestamps**: Mark significant moments (e.g., "5:30 - Product roadmap discussion").
+**INSTRUCTIONS:**
+Write a cohesive explanation (3-5 paragraphs) covering:
+- What was the meeting about? (main topic/purpose)
+- What were the key discussion points?
+- What decisions were made or actions planned?
+- Any important names, dates, or context mentioned
+- The overall tone/sentiment (urgent, casual, concerned, etc.)
 
-**Output Format (strict JSON):**
-\`\`\`json
-{
-  "executiveSummary": "...",
-  "keyPoints": ["...", "..."],
-  "actionItems": [
-    {"speaker": "Speaker 1", "item": "Follow up with client", "timestamp": "3:45"}
-  ],
-  "decisions": [
-    {"decision": "Approved Q2 budget", "timestamp": "12:30"}
-  ],
-  "keyTimestamps": [
-    {"time": "5:30", "event": "Discussed roadmap"}
-  ]
-}
-\`\`\`
+**STYLE:**
+- Write naturally, like telling a story
+- Be MUCH more concise than the original (summarize, don't repeat)
+- Use past tense ("The team discussed...", "They decided...")
+- Focus on meaning and context, not word-for-word transcription
+- Skip unclear parts or background noise
+- No bullet points, no structured format - just flowing paragraphs
 
-Return ONLY the JSON object, no markdown formatting.`;
+**EXAMPLE FORMAT:**
+"The meeting focused on the Q2 product roadmap. The team discussed concerns about missing the launch deadline due to design delays. Sarah from marketing emphasized the importance of hitting the April launch to align with their campaign. John proposed reallocating two developers from the maintenance team to accelerate development. After some debate about resource constraints, they agreed to this approach and set up a checkpoint meeting for next week. The overall tone was urgent but optimistic about meeting the revised timeline."
+
+Now explain this conversation naturally and concisely:`;
 }
 
 function parseSummaryJson(text: string): Omit<MeetingSummary, "duration" | "participantCount"> {
@@ -164,7 +162,7 @@ function parseSummaryJson(text: string): Omit<MeetingSummary, "duration" | "part
       keyTimestamps: parsed.keyTimestamps || [],
     };
   } catch (error) {
-    console.error("[Summary] JSON parsing failed:", error);
+    console.error("[Summary] json parsing faild:", error);
     return {
       executiveSummary: text.slice(0, 300),
       keyPoints: [],
@@ -206,6 +204,6 @@ async function logSummaryAttempt(
       },
     });
   } catch (error) {
-    console.error("[Summary] Failed to log attempt:", error);
+    console.error("[Summary] faild to log attempt:", error);
   }
 }

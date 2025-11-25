@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { FileAudio, CheckCircle, Clock, AlertCircle } from "lucide-react";
+import Link from "next/link";
 
 interface SessionPreview {
   id: string;
@@ -45,9 +46,10 @@ export function RetroHistoryWidget() {
           <div className="text-gray-500 italic">No recordings yet.</div>
         ) : (
           sessions.map((session) => (
-            <div
+            <Link
               key={session.id}
-              className="p-3 bg-white dark:bg-gray-800 border-4 border-black dark:border-gray-600 shadow-retro hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-retro-hover transition-all cursor-pointer"
+              href={`/sessions/${session.id}`}
+              className="block p-3 bg-white dark:bg-gray-800 border-4 border-black dark:border-gray-600 shadow-retro hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-retro-hover transition-all cursor-pointer"
             >
               <div className="flex justify-between items-start mb-1">
                 <h4 className="font-bold truncate pr-2">{session.title || "Untitled Session"}</h4>
@@ -63,7 +65,7 @@ export function RetroHistoryWidget() {
                 <Clock className="w-3 h-3" />
                 <span>{new Date(session.startedAt).toLocaleDateString()}</span>
               </div>
-            </div>
+            </Link>
           ))
         )}
       </div>

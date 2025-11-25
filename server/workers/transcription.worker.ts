@@ -7,20 +7,14 @@ import path from "path";
 import { chunkLogger, sessionLogger } from "../utils/logger";
 import { getIO } from "../server";
 
-/**
- * Transcription worker that processes audio chunks from the queue
- * Handles conversion, transcription, and database updates
- */
+// transcription worke for audio chunks
 
 interface TranscriptionJobData {
   sessionId: string;
   sequence: number;
 }
 
-/**
- * Initialize the transcription worker
- * Sets up job processing handler
- */
+// init transcripion worker
 export function initializeTranscriptionWorker() {
   console.log("[Worker] Initializing transcription worker...");
 
@@ -38,9 +32,7 @@ export function initializeTranscriptionWorker() {
   console.log("[Worker] Transcription worker initialized with queue processing");
 }
 
-/**
- * Add a chunk to the transcription queue
- */
+// add chunk to transcripion queue
 export async function queueTranscription(sessionId: string, sequence: number): Promise<string> {
   const jobId = await transcriptionQueue.add({
     sessionId,
@@ -52,26 +44,13 @@ export async function queueTranscription(sessionId: string, sequence: number): P
   return jobId;
 }
 
-/**
- * Main transcription processing function
- *
- * Orchestrates the transcription pipeline for a single audio chunk:
- * 1. Retrieves chunk metadata from database
- * 2. Converts audio format (WebM -> WAV)
- * 3. Calls Gemini API for transcription
- * 4. Updates database with transcript text and confidence
- * 5. Emits socket events to notify clients
- *
- * @param sessionId - ID of the parent RecordingSession
- * @param sequence - Sequential index of the chunk in the session
- * @throws {Error} If chunk not found, conversion fails, or API errors
- */
+// main transcripion procesing - converts audio, calls gemini, updates db
 async function processTranscription(sessionId: string, sequence: number): Promise<void> {
   const startTime = Date.now();
 
-  console.log(`[Worker] Starting transcription: session=${sessionId}, seq=${sequence}`);
+  console.log(`[Worker] starting transcription: session=${sessionId}, seq=${sequence}`);
 
-  // Step 1: Fetch chunk record by sessionId and sequence
+  // fetch chunk from db
   const chunk = await db.transcriptChunk.findFirst({
     where: {
       sessionId: sessionId,
@@ -84,33 +63,31 @@ async function processTranscription(sessionId: string, sequence: number): Promis
     throw new Error(`Chunk not found: ${sessionId}/${sequence}`);
   }
 
-  // Step 2: Update status to processing
   await db.transcriptChunk.update({
     where: { id: chunk.id },
     data: { status: "processing" },
   });
 
   try {
-    // Step 3: Convert WebM to WAV
-    console.log(`[Worker] Converting audio: ${chunk.audioPath}`);
+    // convert webm to wav
+    console.log(`[Worker] converting audio: ${chunk.audioPath}`);
     const conversionStart = Date.now();
 
     const wavPath = chunk.audioPath.replace(".webm", ".wav");
     const conversionResult = await convertToWav(chunk.audioPath, wavPath, {
       sampleRate: 16000,
       channels: 1,
-      applyFilters: false, // Disable filters for speed, enable if quality issues
-      deleteSource: false, // Keep WebM for backup
+      applyFilters: false,
+      deleteSource: false,
     });
 
     const conversionTime = Date.now() - conversionStart;
-    console.log(`[Worker] Conversion completed in ${conversionTime}ms: ${wavPath}`);
+    console.log(`[Worker] conversion completed in ${conversionTime}ms: ${wavPath}`);
 
-    // Step 4: Get previous context for continuity
+    // get previos context for continuety
     const previousContext = await getPreviousContext(sessionId, sequence);
 
-    // Step 5: Transcribe with Gemini
-    console.log(`[Worker] Calling Gemini API for transcription...`);
+    console.log(`[Worker] calling gemini api for transcription...`);
     const transcriptionStart = Date.now();
 
     const enableDiarization = process.env.ENABLE_SPEAKER_DIARIZATION === "true";
@@ -123,11 +100,17 @@ async function processTranscription(sessionId: string, sequence: number): Promis
     });
 
     const transcriptionTime = Date.now() - transcriptionStart;
+
+    if (!result.text || result.text.length < 3) {
+      console.warn(`[Worker] empty transcript for chunk ${sequence}`);
+      result.text = "[No speech detected in this segment]";
+    }
+
     console.log(
-      `[Worker] Transcription completed in ${transcriptionTime}ms: ${result.text.length} chars`
+      `[Worker] transcription done in ${transcriptionTime}ms: ${result.text.length} chars`
     );
 
-    // Step 6: Update database with results
+    // update db with transcripion
     await db.transcriptChunk.update({
       where: { id: chunk.id },
       data: {

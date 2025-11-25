@@ -12,24 +12,62 @@ export function AudioPlayer({ sessionId, sessionTitle }: AudioPlayerProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [audioAvailable, setAudioAvailable] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const audioUrl = `/api/sessions/${sessionId}/audio`;
 
+  // Check if audio is available
+  useEffect(() => {
+    const checkAudio = async () => {
+      try {
+        const response = await fetch(audioUrl, { method: "HEAD" });
+        if (response.ok) {
+          setAudioAvailable(true);
+          setError(null);
+        } else {
+          setAudioAvailable(false);
+          setError("Audio not yet available. Recording may still be processing.");
+        }
+      } catch (err) {
+        setAudioAvailable(false);
+        setError("Failed to check audio availability.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkAudio();
+  }, [audioUrl]);
+
   useEffect(() => {
     const audio = audioRef.current;
-    if (!audio) return;
+    if (!audio || !audioAvailable) return;
 
     const handleTimeUpdate = () => setCurrentTime(audio.currentTime);
     const handleDurationChange = () => setDuration(audio.duration);
     const handleEnded = () => setIsPlaying(false);
     const handleLoadStart = () => setIsLoading(true);
-    const handleCanPlay = () => setIsLoading(false);
-    const handleError = () => {
-      setError("Failed to load audio. Some chunks may be missing.");
+    const handleCanPlay = () => {
       setIsLoading(false);
+      setError(null);
+    };
+    const handleError = (e: Event) => {
+      const target = e.target as HTMLAudioElement;
+      const errorCode = target.error?.code;
+      let errorMsg = "Failed to load audio.";
+
+      if (errorCode === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED) {
+        errorMsg = "Audio format not supported or file missing.";
+      } else if (errorCode === MediaError.MEDIA_ERR_NETWORK) {
+        errorMsg = "Network error while loading audio.";
+      }
+
+      setError(errorMsg);
+      setIsLoading(false);
+      setAudioAvailable(false);
     };
 
     audio.addEventListener("timeupdate", handleTimeUpdate);
@@ -47,7 +85,7 @@ export function AudioPlayer({ sessionId, sessionTitle }: AudioPlayerProps) {
       audio.removeEventListener("canplay", handleCanPlay);
       audio.removeEventListener("error", handleError);
     };
-  }, []);
+  }, [audioAvailable]);
 
   const togglePlayPause = () => {
     const audio = audioRef.current;
@@ -96,84 +134,79 @@ export function AudioPlayer({ sessionId, sessionTitle }: AudioPlayerProps) {
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+    <div className="bg-white dark:bg-gray-900 border-4 border-black dark:border-white shadow-retro p-6">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-            {sessionTitle || "Audio Playback"}
-          </h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Session: {sessionId.slice(0, 8)}...
-          </p>
+          <h3 className="text-lg font-black uppercase">{sessionTitle || "Audio Playback"}</h3>
+          <p className="text-sm font-bold opacity-60">ID: {sessionId.slice(0, 8)}...</p>
         </div>
-        <button
-          onClick={handleDownload}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-500 text-white hover:bg-brand-600 transition-colors"
-          title="Download audio"
-        >
-          <Download className="w-4 h-4" />
-          Download
-        </button>
+        {audioAvailable && (
+          <button
+            onClick={handleDownload}
+            className="flex items-center gap-2 px-4 py-2 bg-retro-accent border-4 border-black font-bold shadow-retro hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-retro-hover transition-all uppercase"
+            title="Download audio"
+          >
+            <Download className="w-4 h-4" />
+            Save
+          </button>
+        )}
       </div>
 
       {error && (
-        <div className="mb-4 p-3 rounded-lg bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 flex items-start gap-2">
-          <AlertCircle className="w-5 h-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
-          <p className="text-sm text-yellow-800 dark:text-yellow-200">{error}</p>
+        <div className="mb-4 p-3 bg-yellow-100 border-4 border-yellow-500 flex items-start gap-2">
+          <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+          <p className="text-sm font-bold">{error}</p>
         </div>
       )}
 
-      <div className="space-y-4">
-        {/* Hidden audio element */}
-        <audio ref={audioRef} src={audioUrl} preload="metadata" />
+      {!audioAvailable && !isLoading ? (
+        <div className="p-6 bg-gray-100 dark:bg-gray-800 border-2 border-gray-400 text-center">
+          <p className="font-bold">
+            Audio not available yet. Recording may still be processing or no chunks were recorded.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {/* Hidden audio element */}
+          {audioAvailable && <audio ref={audioRef} src={audioUrl} preload="metadata" />}
 
-        {/* Play/Pause button */}
-        <div className="flex items-center gap-4">
-          <button
-            onClick={togglePlayPause}
-            disabled={isLoading}
-            className="w-12 h-12 flex items-center justify-center rounded-full bg-brand-500 text-white hover:bg-brand-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-          >
-            {isLoading ? (
-              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            ) : isPlaying ? (
-              <Pause className="w-5 h-5" />
-            ) : (
-              <Play className="w-5 h-5 ml-0.5" />
-            )}
-          </button>
+          {/* Play/Pause button */}
+          <div className="flex items-center gap-4">
+            <button
+              onClick={togglePlayPause}
+              disabled={isLoading || !audioAvailable}
+              className="w-12 h-12 flex items-center justify-center bg-retro-primary border-4 border-black shadow-retro hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-retro-hover disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            >
+              {isLoading ? (
+                <div className="w-5 h-5 border-4 border-black border-t-transparent animate-spin" />
+              ) : isPlaying ? (
+                <Pause className="w-5 h-5" />
+              ) : (
+                <Play className="w-5 h-5 ml-0.5" />
+              )}
+            </button>
 
-          {/* Time display */}
-          <div className="flex-1">
-            <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400 mb-2">
-              <span>{formatTime(currentTime)}</span>
-              <span>{formatTime(duration)}</span>
+            {/* Time display */}
+            <div className="flex-1">
+              <div className="flex items-center justify-between text-sm font-bold mb-2">
+                <span>{formatTime(currentTime)}</span>
+                <span>{formatTime(duration)}</span>
+              </div>
+
+              {/* Progress bar */}
+              <input
+                type="range"
+                min="0"
+                max={duration || 0}
+                value={currentTime}
+                onChange={handleSeek}
+                disabled={!audioAvailable}
+                className="w-full h-2 bg-gray-200 dark:bg-gray-700 border-2 border-black appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:bg-retro-primary [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-black"
+              />
             </div>
-
-            {/* Progress bar */}
-            <input
-              type="range"
-              min="0"
-              max={duration || 0}
-              value={currentTime}
-              onChange={handleSeek}
-              className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-brand-500"
-              style={{
-                background: `linear-gradient(to right, rgb(79, 70, 229) 0%, rgb(79, 70, 229) ${
-                  (currentTime / (duration || 1)) * 100
-                }%, rgb(229, 231, 235) ${
-                  (currentTime / (duration || 1)) * 100
-                }%, rgb(229, 231, 235) 100%)`,
-              }}
-            />
           </div>
         </div>
-
-        {/* Technical info */}
-        <div className="text-xs text-gray-500 dark:text-gray-400 pt-2 border-t border-gray-200 dark:border-gray-700">
-          <p>Format: WebM/Opus | Combined from multiple 30-second chunks</p>
-        </div>
-      </div>
+      )}
     </div>
   );
 }

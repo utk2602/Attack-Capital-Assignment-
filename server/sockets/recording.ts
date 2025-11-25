@@ -23,11 +23,7 @@ import { socketManager } from "../managers/SocketManager";
 import { finalizeSession } from "../processors/finalize";
 import { queueTranscription } from "../workers/transcription.worker";
 
-/**
- * Setup Socket.io event handlers for recording sessions
- * @param io - Socket.io server instance
- * @param socket - Client socket connection
- */
+// setup socket handlers for recoreding sessions
 export function setupRecordingSockets(io: Server, socket: Socket) {
   socketLogger.connected(socket.id, {
     handshake: socket.handshake.address,
@@ -36,7 +32,6 @@ export function setupRecordingSockets(io: Server, socket: Socket) {
   const backpressureManager = getBackpressureManager(socket.id);
   let authenticatedUserId: string | null = null;
 
-  // Authenticate socket on connection (uses cookies)
   socketManager.authenticate(socket).then((userId) => {
     authenticatedUserId = userId;
     if (!userId) {
@@ -45,19 +40,16 @@ export function setupRecordingSockets(io: Server, socket: Socket) {
     }
   });
 
-  // Join session room
   socket.on("join", (room: string) => {
     socket.join(room);
     console.log(`[Socket] ${socket.id} joined room: ${room}`);
   });
 
-  // Leave session room
   socket.on("leave", (room: string) => {
     socket.leave(room);
     console.log(`[Socket] ${socket.id} left room: ${room}`);
   });
 
-  // Start session
   socket.on("start-session", async (rawData: unknown) => {
     if (!authenticatedUserId) {
       socket.emit("session-error", { error: "Unauthorized" });
@@ -137,7 +129,6 @@ export function setupRecordingSockets(io: Server, socket: Socket) {
     }
   });
 
-  // Audio chunk handler
   socket.on("audio-chunk", async (rawData: unknown) => {
     const chunkStartTime = Date.now();
 
@@ -207,8 +198,6 @@ export function setupRecordingSockets(io: Server, socket: Socket) {
         return;
       }
 
-      // Process chunk using manager
-      // Socket.io may send audio as ArrayBuffer, Buffer, or Uint8Array
       let audioBuffer: Buffer;
       if (Buffer.isBuffer(data.audio)) {
         audioBuffer = data.audio;
@@ -273,7 +262,6 @@ export function setupRecordingSockets(io: Server, socket: Socket) {
     }
   });
 
-  // Pause session
   socket.on("pause-session", async (rawData: unknown) => {
     if (!authenticatedUserId) {
       socket.emit("session-error", { error: "Unauthorized" });
@@ -417,8 +405,7 @@ export function setupRecordingSockets(io: Server, socket: Socket) {
     }
   });
 
-  // Disconnect handler
-  socket.on("disconnect", (reason) => {
+  socket.on("disconnect", (reason: string) => {
     socketLogger.disconnected(socket.id, reason);
     socketManager.handleDisconnect(socket.id);
     removeBackpressureManager(socket.id);

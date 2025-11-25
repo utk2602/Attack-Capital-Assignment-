@@ -38,11 +38,11 @@ app.prepare().then(() => {
   });
 
   io.on("connection", (socket) => {
-    console.log("✅ Client connected:", socket.id);
+    console.log("client connected:", socket.id);
     setupRecordingSockets(io, socket);
 
     socket.on("disconnect", () => {
-      console.log("❌ Client disconnected:", socket.id);
+      console.log("client disconnected:", socket.id);
     });
   });
 

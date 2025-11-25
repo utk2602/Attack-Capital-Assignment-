@@ -1,35 +1,9 @@
-/**
- * Audio Recording Utilities
- *
- * This module provides utilities for capturing audio from:
- * 1. Microphone (getUserMedia)
- * 2. Browser Tab (getDisplayMedia)
- *
- * Features:
- * - Configurable chunk duration (default 10s)
- * - Automatic blob generation
- * - Error handling and fallbacks
- * - Stream cleanup
- */
+// audio recoreding utils for mic and browser tab
 
 export interface AudioRecorderOptions {
-  /**
-   * Duration of each audio chunk in milliseconds
-   * @default 30000 (30 seconds)
-   */
-  chunkDuration?: number;
-
-  /**
-   * MIME type for audio encoding
-   * @default "audio/webm;codecs=opus"
-   */
-  mimeType?: string;
-
-  /**
-   * Audio bitrate in bits per second
-   * @default 128000 (128 kbps)
-   */
-  audioBitsPerSecond?: number;
+  chunkDuration?: number; // chunk duraton in ms, defalt 30s
+  mimeType?: string; // audio encoding typ
+  audioBitsPerSecond?: number; // bitrate for audio
 }
 
 export interface AudioChunkData {
@@ -48,39 +22,21 @@ export interface AudioRecorderResult {
   getRecordingStartTime: () => number;
 }
 
-/**
- * Start recording audio from the user's microphone
- *
- * @param onChunk - Callback fired when a new audio chunk is ready
- * @param options - Recording configuration options
- * @returns Audio recorder controls and stream
- *
- * @example
- * ```ts
- * const recorder = await startMicRecording((chunkData) => {
- *   console.log(`Chunk ${chunkData.sequence} at ${chunkData.timestamp}ms`);
- *   // Upload blob to server
- * });
- *
- * // Later...
- * recorder.stop();
- * ```
- */
+// start mic recoreding with chunk callback
 export async function startMicRecording(
   onChunk: (chunkData: AudioChunkData) => void,
   options: AudioRecorderOptions = {}
 ): Promise<AudioRecorderResult> {
   const {
-    chunkDuration = 30000, // Default to 30 seconds
+    chunkDuration = 30000,
     mimeType = "audio/webm;codecs=opus",
     audioBitsPerSecond = 128000,
   } = options;
 
-  // Track recording start time for timestamping
   const recordingStartTime = Date.now();
   let sequence = 0;
 
-  // Request microphone access
+  // request mic acess
   let stream: MediaStream;
   try {
     stream = await navigator.mediaDevices.getUserMedia({
@@ -113,7 +69,8 @@ export async function startMicRecording(
 
   // Handle data available (chunk ready)
   recorder.ondataavailable = (event) => {
-    if (event.data.size > 0) {
+    // Filter out tiny/corrupt chunks (less than 1KB is likely corrupt)
+    if (event.data.size > 1000) {
       const timestamp = Date.now() - recordingStartTime;
       console.log(`[AudioRecorder] Chunk ${sequence} ready: ${event.data.size} bytes`);
       onChunk({
@@ -122,8 +79,10 @@ export async function startMicRecording(
         timestamp,
         duration: chunkDuration,
       });
-    } else {
-      console.warn(`[AudioRecorder] Empty chunk received`);
+    } else if (event.data.size > 0) {
+      console.warn(
+        `[AudioRecorder] ⚠️ Skipping tiny/corrupt chunk (${event.data.size} bytes) - likely stop() artifact`
+      );
     }
   };
 
@@ -148,11 +107,10 @@ export async function startMicRecording(
     recorder,
     stop: () => {
       if (recorder.state !== "inactive") {
-        console.log(`[AudioRecorder] Requesting final chunk before stop`);
-        // Request any remaining data before stopping
-        if (recorder.state === "recording") {
-          recorder.requestData();
-        }
+        console.log(
+          `[AudioRecorder] Stopping recorder (no final chunk request to avoid corruption)`
+        );
+        // DON'T call requestData() - it creates corrupt final chunks
         recorder.stop();
       }
       stream.getTracks().forEach((track) => track.stop());
@@ -209,23 +167,59 @@ export async function startTabRecording(
 
   try {
     // Request display media with audio
+    // CRITICAL: video must be true for audio to work with getDisplayMedia
     stream = await navigator.mediaDevices.getDisplayMedia({
       audio: {
         echoCancellation: true,
         noiseSuppression: true,
         sampleRate: 48000,
-      } as any, // Type assertion needed for audio constraints
-      video: false as any, // We only want audio, but some browsers require video: true
+        autoGainControl: true,
+      } as any,
+      video: true, // MUST be true for browser tab audio capture
+    });
+
+    console.log(`[AudioRecorder:Tab] Stream obtained. Tracks:`, {
+      audio: stream.getAudioTracks().length,
+      video: stream.getVideoTracks().length,
+    });
+
+    // Remove video track if present (we only want audio)
+    const videoTracks = stream.getVideoTracks();
+    videoTracks.forEach((track) => {
+      console.log(`[AudioRecorder:Tab] Removing video track: ${track.label}`);
+      track.stop();
+      stream.removeTrack(track);
     });
 
     // Check if audio track is present
     const audioTracks = stream.getAudioTracks();
+    console.log(
+      `[AudioRecorder:Tab] Audio tracks:`,
+      audioTracks.map((t) => ({
+        label: t.label,
+        enabled: t.enabled,
+        muted: t.muted,
+        readyState: t.readyState,
+      }))
+    );
+
     if (audioTracks.length === 0) {
       // No audio track, fall back to microphone
-      console.warn("Selected tab has no audio. Falling back to microphone...");
+      console.warn(
+        "[AudioRecorder:Tab] Selected source has no audio. Falling back to microphone..."
+      );
       stream.getTracks().forEach((track) => track.stop());
-      return startMicRecording(onChunk, options);
+      throw new Error("NO_AUDIO_IN_TAB");
     }
+
+    // Verify audio track is active
+    if (audioTracks[0].readyState !== "live") {
+      console.warn("[AudioRecorder:Tab] Audio track not live. Falling back to microphone...");
+      stream.getTracks().forEach((track) => track.stop());
+      throw new Error("AUDIO_TRACK_NOT_LIVE");
+    }
+
+    console.log(`[AudioRecorder:Tab] audio track verified and ready`);
   } catch (error) {
     if (error instanceof Error) {
       if (error.name === "NotAllowedError") {
@@ -249,17 +243,23 @@ export async function startTabRecording(
 
   // Handle data available (chunk ready)
   recorder.ondataavailable = (event) => {
-    if (event.data.size > 0) {
+    // Filter out tiny/corrupt chunks (less than 1KB is likely corrupt)
+    if (event.data.size > 1000) {
       const timestamp = Date.now() - recordingStartTime;
-      console.log(`[AudioRecorder:Tab] Chunk ${sequence} ready: ${event.data.size} bytes`);
+      console.log(
+        `[AudioRecorder:Tab] Chunk ${sequence} ready: ${event.data.size} bytes, type: ${event.data.type}`
+      );
+
       onChunk({
         blob: event.data,
         sequence: sequence++,
         timestamp,
         duration: chunkDuration,
       });
-    } else {
-      console.warn(`[AudioRecorder:Tab] Empty chunk received`);
+    } else if (event.data.size > 0) {
+      console.warn(
+        `[AudioRecorder:Tab] ⚠️ Skipping tiny/corrupt chunk (${event.data.size} bytes) - likely stop() artifact`
+      );
     }
   };
 
@@ -293,11 +293,10 @@ export async function startTabRecording(
     recorder,
     stop: () => {
       if (recorder.state !== "inactive") {
-        console.log(`[AudioRecorder:Tab] Requesting final chunk before stop`);
-        // Request any remaining data before stopping
-        if (recorder.state === "recording") {
-          recorder.requestData();
-        }
+        console.log(
+          `[AudioRecorder:Tab] Stopping recorder (no final chunk request to avoid corruption)`
+        );
+        // DON'T call requestData() - it creates corrupt final chunks
         recorder.stop();
       }
       stream.getTracks().forEach((track) => track.stop());

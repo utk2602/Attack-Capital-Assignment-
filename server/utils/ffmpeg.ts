@@ -5,8 +5,6 @@ import { promisify } from "util";
 
 const unlinkAsync = promisify(fs.unlink);
 
-
-
 export interface ConversionOptions {
   sampleRate?: number;
   channels?: number;
@@ -21,24 +19,7 @@ export interface ConversionResult {
   conversionTimeMs: number;
 }
 
-/**
- * Convert WebM audio blob to 16kHz mono PCM WAV format
- * Optimized for Google Gemini transcription API
- *
- * @param inputPath - Path to input WebM file
- * @param outputPath - Optional custom output path (defaults to .wav extension)
- * @param options - Conversion options
- * @returns Promise with conversion result details
- *
- * @example
- * ```typescript
- * const result = await convertToWav(
- *   './storage/session_abc/chunk_0.webm',
- *   './storage/session_abc/chunk_0.wav'
- * );
- * console.log(`Converted in ${result.conversionTimeMs}ms`);
- * ```
- */
+// convert webm to wav for gemini api
 export async function convertToWav(
   inputPath: string,
   outputPath?: string,
@@ -62,20 +43,20 @@ export async function convertToWav(
       .format("wav");
     if (applyFilters) {
       command = command.audioFilters([
-        "highpass=f=200", 
+        "highpass=f=200",
         "lowpass=f=3000",
-        "volume=1.5", 
+        "volume=1.5",
         "anlmdn=s=0.00001",
       ]);
     }
 
     command
       .on("start", (commandLine) => {
-        console.log(`[FFmpeg] Starting conversion: ${commandLine}`);
+        console.log(`[FFmpeg] starting conversion: ${commandLine}`);
       })
       .on("progress", (progress) => {
         if (progress.percent) {
-          console.log(`[FFmpeg] Progress: ${Math.round(progress.percent)}%`);
+          console.log(`[FFmpeg] progress: ${Math.round(progress.percent)}%`);
         }
       })
       .on("end", async () => {
@@ -93,11 +74,11 @@ export async function convertToWav(
           };
 
           console.log(
-            `[FFmpeg] Conversion completed in ${conversionTimeMs}ms: ${inputPath} → ${outputPath}`
+            `[FFmpeg] conversion completed in ${conversionTimeMs}ms: ${inputPath} → ${outputPath}`
           );
           if (deleteSource) {
             await unlinkAsync(inputPath);
-            console.log(`[FFmpeg] Deleted source file: ${inputPath}`);
+            console.log(`[FFmpeg] deleted source file: ${inputPath}`);
           }
 
           resolve(result);
@@ -106,7 +87,7 @@ export async function convertToWav(
         }
       })
       .on("error", (error) => {
-        console.error(`[FFmpeg] Conversion error: ${error.message}`);
+        console.error(`[FFmpeg] conversion error: ${error.message}`);
         reject(new Error(`FFmpeg conversion failed: ${error.message}`));
       })
       .save(outputPath);

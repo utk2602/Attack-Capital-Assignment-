@@ -67,7 +67,7 @@ async function archiveAndCleanupSession(session: any): Promise<void> {
     data: { status: "archived" },
   });
 
-  console.log(`[Retention] ✅ Archived and cleaned up session: ${session.id}`);
+  console.log(`[Retention] archived and cleaned up session: ${session.id}`);
 }
 
 function createArchive(session: any, sourceDir: string, destPath: string): Promise<void> {
@@ -129,7 +129,6 @@ async function deleteSessionDirectory(dirPath: string): Promise<void> {
   }
 }
 
-
 export async function getStorageMetrics(): Promise<{
   hotStorageMB: number;
   archiveStorageMB: number;
@@ -187,9 +186,8 @@ async function getDirectorySize(dirPath: string): Promise<number> {
   return totalSize;
 }
 
-
 export function initializeRetentionWorker(): void {
-  const CLEANUP_INTERVAL = 24 * 60 * 60 * 1000; 
+  const CLEANUP_INTERVAL = 24 * 60 * 60 * 1000;
 
   console.log("[Retention] Worker initialized - runs daily at 2 AM");
 
