@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Mic, FileText, Zap, Shield } from "lucide-react";
+import { Mic, FileText, Zap, Shield, Check, Star, ChevronDown, ArrowRight } from "lucide-react";
+import { useState } from "react";
 
 export function RetroLanding() {
   const router = useRouter();
@@ -29,9 +30,9 @@ export function RetroLanding() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col items-center relative z-10 pt-20 pb-20">
+      <main className="flex-1 flex flex-col items-center relative z-10 pt-20 pb-20 w-full">
         {/* Hero Section */}
-        <div className="text-center max-w-5xl px-4 mb-24 relative">
+        <div className="text-center max-w-5xl px-4 mb-24 relative w-full">
           {/* Decorative shapes */}
           <div className="absolute -top-10 -left-10 w-24 h-24 bg-retro-secondary border-4 border-black shadow-retro rotate-12 hidden md:block"></div>
           <div className="absolute top-1/2 -right-20 w-32 h-32 bg-retro-primary border-4 border-black shadow-retro -rotate-6 rounded-full hidden md:block"></div>
@@ -68,6 +69,16 @@ export function RetroLanding() {
           </div>
         </div>
 
+        {/* Trusted By Marquee */}
+        <div className="w-full border-y-4 border-black bg-white dark:bg-black py-8 mb-24 overflow-hidden">
+          <p className="text-center font-bold mb-4 uppercase tracking-widest text-gray-500">Trusted by industry leaders</p>
+          <div className="flex justify-center gap-12 md:gap-24 opacity-50 grayscale hover:grayscale-0 transition-all duration-500 flex-wrap px-4">
+             {["ACME CORP", "GLOBEX", "SOYLENT", "UMBRELLA", "CYBERDYNE"].map((company) => (
+               <span key={company} className="text-2xl md:text-4xl font-black text-black dark:text-white">{company}</span>
+             ))}
+          </div>
+        </div>
+
         {/* Marquee */}
         <div className="w-full bg-retro-accent border-y-4 border-black py-4 overflow-hidden mb-24 transform -rotate-1">
           <div className="animate-marquee whitespace-nowrap flex gap-8 text-2xl font-black text-black uppercase">
@@ -96,7 +107,7 @@ export function RetroLanding() {
         {/* Features Grid */}
         <div
           id="features"
-          className="max-w-6xl px-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
+          className="max-w-6xl px-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-32"
         >
           <FeatureCard
             icon={<Mic className="w-8 h-8" />}
@@ -117,11 +128,103 @@ export function RetroLanding() {
             color="bg-retro-accent"
           />
         </div>
+
+        {/* Testimonials */}
+        <div className="w-full max-w-6xl px-4 mb-32">
+          <h2 className="text-4xl md:text-6xl font-black text-center mb-16 uppercase tracking-tighter">
+            What People Say
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <TestimonialCard 
+              quote="This tool literally saved my career. The transcription is faster than I can think."
+              author="Sarah Connor"
+              role="Resistance Leader"
+              color="bg-retro-primary"
+            />
+            <TestimonialCard 
+              quote="I've used every tool on the market. Scribe is the only one that doesn't suck."
+              author="Rick Deckard"
+              role="Blade Runner"
+              color="bg-retro-secondary"
+            />
+            <TestimonialCard 
+              quote="Simple. Fast. Brutal. Exactly what I needed for my classified meetings."
+              author="Fox Mulder"
+              role="FBI Agent"
+              color="bg-retro-accent"
+            />
+          </div>
+        </div>
+
+        {/* Pricing */}
+        <div className="w-full max-w-6xl px-4 mb-32">
+          <h2 className="text-4xl md:text-6xl font-black text-center mb-16 uppercase tracking-tighter">
+            Simple Pricing
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-end">
+            <PricingCard 
+              title="Starter"
+              price="$0"
+              features={["5 Hours/mo", "Basic Export", "7 Day Retention"]}
+              color="bg-white dark:bg-gray-900"
+            />
+            <PricingCard 
+              title="Pro"
+              price="$29"
+              features={["Unlimited Hours", "All Export Formats", "Forever Retention", "Priority Support"]}
+              color="bg-retro-accent"
+              highlighted
+            />
+            <PricingCard 
+              title="Enterprise"
+              price="Custom"
+              features={["SSO", "Audit Logs", "Dedicated Instance", "SLA"]}
+              color="bg-white dark:bg-gray-900"
+            />
+          </div>
+        </div>
+
+        {/* FAQ */}
+        <div className="w-full max-w-3xl px-4 mb-32">
+          <h2 className="text-4xl md:text-6xl font-black text-center mb-16 uppercase tracking-tighter">
+            FAQ
+          </h2>
+          <div className="space-y-4">
+            <FAQItem question="Is my data secure?" answer="Yes. We use military-grade encryption and delete processed audio immediately after transcription." />
+            <FAQItem question="Can I export to Notion?" answer="Currently we support Markdown which can be pasted directly into Notion. Direct integration coming soon." />
+            <FAQItem question="How accurate is it?" answer="We use the latest Gemini models which typically achieve 98%+ accuracy on clear audio." />
+          </div>
+        </div>
+
+        {/* CTA */}
+        <div className="w-full max-w-4xl px-4 mb-20">
+          <div className="bg-retro-primary border-4 border-black p-8 md:p-16 text-center shadow-retro relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/diagmonds-light.png')] opacity-20"></div>
+            <h2 className="text-4xl md:text-6xl font-black text-black mb-8 uppercase relative z-10">
+              Ready to transcribe?
+            </h2>
+            <button
+              onClick={() => router.push("/auth")}
+              className="px-12 py-6 bg-black text-white text-2xl font-black border-4 border-white hover:scale-105 transition-transform shadow-[8px_8px_0px_0px_#ffffff] relative z-10"
+            >
+              GET STARTED NOW
+            </button>
+          </div>
+        </div>
+
       </main>
 
       {/* Footer */}
       <footer className="w-full p-8 border-t-4 border-black dark:border-white bg-white dark:bg-black text-center z-10">
-        <p className="font-bold text-black dark:text-white">© 2025 SCRIBE.AI // BUILT FOR SPEED</p>
+        <div className="flex flex-col md:flex-row justify-between items-center max-w-6xl mx-auto gap-4">
+          <div className="text-2xl font-black">SCRIBE.AI</div>
+          <div className="flex gap-6 font-bold underline decoration-2 underline-offset-4">
+            <a href="#" className="hover:text-retro-primary">Twitter</a>
+            <a href="#" className="hover:text-retro-primary">GitHub</a>
+            <a href="#" className="hover:text-retro-primary">Discord</a>
+          </div>
+          <p className="font-bold text-gray-500">© 2025 SCRIBE.AI</p>
+        </div>
       </footer>
     </div>
   );
@@ -139,14 +242,77 @@ function FeatureCard({
   color: string;
 }) {
   return (
-    <div className="bg-white dark:bg-gray-900 border-4 border-black dark:border-white p-6 shadow-retro hover:shadow-retro-hover hover:translate-x-[2px] hover:translate-y-[2px] transition-all group">
+    <div className="bg-white dark:bg-gray-900 border-4 border-black dark:border-white p-6 shadow-retro hover:shadow-retro-hover hover:translate-x-[2px] hover:translate-y-[2px] transition-all group h-full flex flex-col">
       <div
         className={`w-16 h-16 ${color} border-4 border-black flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}
       >
         {icon}
       </div>
       <h3 className="text-2xl font-black mb-2 uppercase">{title}</h3>
-      <p className="text-gray-600 dark:text-gray-400 font-medium leading-relaxed">{description}</p>
+      <p className="text-gray-600 dark:text-gray-400 font-medium leading-relaxed flex-1">{description}</p>
+    </div>
+  );
+}
+
+function TestimonialCard({ quote, author, role, color }: { quote: string; author: string; role: string; color: string }) {
+  return (
+    <div className="bg-white dark:bg-gray-900 border-4 border-black dark:border-white p-6 shadow-retro relative">
+      <div className={`absolute -top-4 -left-4 w-8 h-8 ${color} border-4 border-black`}></div>
+      <div className="mb-4">
+        {[1, 2, 3, 4, 5].map((i) => (
+          <Star key={i} className="w-5 h-5 inline-block fill-black dark:fill-white" />
+        ))}
+      </div>
+      <p className="text-lg font-bold mb-6 italic">"{quote}"</p>
+      <div>
+        <div className="font-black uppercase">{author}</div>
+        <div className="text-sm font-mono text-gray-500">{role}</div>
+      </div>
+    </div>
+  );
+}
+
+function PricingCard({ title, price, features, color, highlighted = false }: { title: string; price: string; features: string[]; color: string; highlighted?: boolean }) {
+  return (
+    <div className={`${color} border-4 border-black dark:border-white p-8 shadow-retro flex flex-col ${highlighted ? 'transform scale-105 z-10' : ''}`}>
+      {highlighted && (
+        <div className="bg-black text-white text-center font-bold py-1 mb-4 uppercase text-sm">
+          Most Popular
+        </div>
+      )}
+      <h3 className="text-2xl font-black uppercase mb-2">{title}</h3>
+      <div className="text-5xl font-black mb-8">{price}<span className="text-lg font-normal text-gray-500">/mo</span></div>
+      <ul className="space-y-4 mb-8 flex-1">
+        {features.map((feature) => (
+          <li key={feature} className="flex items-center gap-2 font-bold">
+            <Check className="w-5 h-5" /> {feature}
+          </li>
+        ))}
+      </ul>
+      <button className="w-full py-3 bg-black dark:bg-white text-white dark:text-black font-black border-2 border-transparent hover:opacity-80 transition-opacity uppercase">
+        Choose Plan
+      </button>
+    </div>
+  );
+}
+
+function FAQItem({ question, answer }: { question: string; answer: string }) {
+  const [isOpen, setIsOpen] = useState(false);
+  
+  return (
+    <div className="border-4 border-black dark:border-white bg-white dark:bg-gray-900 shadow-retro">
+      <button 
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full p-4 flex justify-between items-center font-black text-lg text-left hover:bg-gray-50 dark:hover:bg-gray-800"
+      >
+        {question}
+        <ChevronDown className={`w-6 h-6 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+      {isOpen && (
+        <div className="p-4 pt-0 border-t-2 border-black dark:border-gray-700 font-medium text-gray-600 dark:text-gray-300">
+          {answer}
+        </div>
+      )}
     </div>
   );
 }
