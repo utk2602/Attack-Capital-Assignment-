@@ -2,11 +2,23 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Mic, FileText, Zap, Shield, Check, Star, ChevronDown, ArrowRight } from "lucide-react";
-import { useState } from "react";
+import { Mic, FileText, Zap, Shield, Check, Star, ChevronDown, ArrowRight, Github, Twitter, Activity } from "lucide-react";
+import { useState, useEffect } from "react";
 
 export function RetroLanding() {
   const router = useRouter();
+  const [text, setText] = useState("");
+  const fullText = "The brutalist audio transcription tool for the modern web.";
+
+  useEffect(() => {
+    let index = 0;
+    const interval = setInterval(() => {
+      setText(fullText.slice(0, index));
+      index++;
+      if (index > fullText.length) clearInterval(interval);
+    }, 50);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <div className="min-h-screen w-full bg-retro-bg dark:bg-retro-dark overflow-x-hidden flex flex-col relative font-mono">
@@ -48,10 +60,12 @@ export function RetroLanding() {
             </span>
           </h1>
 
-          <p className="text-xl md:text-2xl font-bold text-gray-800 dark:text-gray-300 bg-white dark:bg-gray-900 border-4 border-black dark:border-white p-6 shadow-retro max-w-2xl mx-auto transform rotate-1 hover:rotate-0 transition-transform duration-300">
-            The brutalist audio transcription tool for the modern web.
-            <span className="block mt-2 text-retro-primary">No fluff. Just text.</span>
-          </p>
+          <div className="h-24 flex items-center justify-center">
+             <p className="text-xl md:text-2xl font-bold text-gray-800 dark:text-gray-300 bg-white dark:bg-gray-900 border-4 border-black dark:border-white p-6 shadow-retro max-w-2xl mx-auto transform rotate-1 hover:rotate-0 transition-transform duration-300">
+              {text}<span className="animate-blink">_</span>
+              <span className="block mt-2 text-retro-primary text-lg">No fluff. Just text.</span>
+            </p>
+          </div>
 
           <div className="mt-12 flex flex-col md:flex-row gap-6 justify-center items-center">
             <button
@@ -69,14 +83,14 @@ export function RetroLanding() {
           </div>
         </div>
 
-        {/* Trusted By Marquee */}
-        <div className="w-full border-y-4 border-black bg-white dark:bg-black py-8 mb-24 overflow-hidden">
-          <p className="text-center font-bold mb-4 uppercase tracking-widest text-gray-500">Trusted by industry leaders</p>
-          <div className="flex justify-center gap-12 md:gap-24 opacity-50 grayscale hover:grayscale-0 transition-all duration-500 flex-wrap px-4">
-             {["ACME CORP", "GLOBEX", "SOYLENT", "UMBRELLA", "CYBERDYNE"].map((company) => (
-               <span key={company} className="text-2xl md:text-4xl font-black text-black dark:text-white">{company}</span>
-             ))}
-          </div>
+        {/* Live Stats / Social Proof Replacement */}
+        <div className="w-full max-w-6xl px-4 mb-24">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 border-4 border-black dark:border-white bg-white dark:bg-gray-900 p-8 shadow-retro">
+                <StatItem label="Active Users" value="12,403" />
+                <StatItem label="Hours Transcribed" value="84,291" />
+                <StatItem label="Accuracy" value="99.8%" />
+                <StatItem label="Uptime" value="99.99%" />
+            </div>
         </div>
 
         {/* Marquee */}
@@ -135,19 +149,19 @@ export function RetroLanding() {
             What People Say
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <TestimonialCard 
+            <TestimonialCard
               quote="This tool literally saved my career. The transcription is faster than I can think."
               author="Sarah Connor"
               role="Resistance Leader"
               color="bg-retro-primary"
             />
-            <TestimonialCard 
+            <TestimonialCard
               quote="I've used every tool on the market. Scribe is the only one that doesn't suck."
               author="Rick Deckard"
               role="Blade Runner"
               color="bg-retro-secondary"
             />
-            <TestimonialCard 
+            <TestimonialCard
               quote="Simple. Fast. Brutal. Exactly what I needed for my classified meetings."
               author="Fox Mulder"
               role="FBI Agent"
@@ -162,20 +176,25 @@ export function RetroLanding() {
             Simple Pricing
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-end">
-            <PricingCard 
+            <PricingCard
               title="Starter"
               price="$0"
               features={["5 Hours/mo", "Basic Export", "7 Day Retention"]}
               color="bg-white dark:bg-gray-900"
             />
-            <PricingCard 
+            <PricingCard
               title="Pro"
               price="$29"
-              features={["Unlimited Hours", "All Export Formats", "Forever Retention", "Priority Support"]}
+              features={[
+                "Unlimited Hours",
+                "All Export Formats",
+                "Forever Retention",
+                "Priority Support",
+              ]}
               color="bg-retro-accent"
               highlighted
             />
-            <PricingCard 
+            <PricingCard
               title="Enterprise"
               price="Custom"
               features={["SSO", "Audit Logs", "Dedicated Instance", "SLA"]}
@@ -190,9 +209,18 @@ export function RetroLanding() {
             FAQ
           </h2>
           <div className="space-y-4">
-            <FAQItem question="Is my data secure?" answer="Yes. We use military-grade encryption and delete processed audio immediately after transcription." />
-            <FAQItem question="Can I export to Notion?" answer="Currently we support Markdown which can be pasted directly into Notion. Direct integration coming soon." />
-            <FAQItem question="How accurate is it?" answer="We use the latest Gemini models which typically achieve 98%+ accuracy on clear audio." />
+            <FAQItem
+              question="Is my data secure?"
+              answer="Yes. We use military-grade encryption and delete processed audio immediately after transcription."
+            />
+            <FAQItem
+              question="Can I export to Notion?"
+              answer="Currently we support Markdown which can be pasted directly into Notion. Direct integration coming soon."
+            />
+            <FAQItem
+              question="How accurate is it?"
+              answer="We use the latest Gemini models which typically achieve 98%+ accuracy on clear audio."
+            />
           </div>
         </div>
 
@@ -211,17 +239,22 @@ export function RetroLanding() {
             </button>
           </div>
         </div>
-
       </main>
 
       {/* Footer */}
       <footer className="w-full p-8 border-t-4 border-black dark:border-white bg-white dark:bg-black text-center z-10">
         <div className="flex flex-col md:flex-row justify-between items-center max-w-6xl mx-auto gap-4">
-          <div className="text-2xl font-black">SCRIBE.AI</div>
-          <div className="flex gap-6 font-bold underline decoration-2 underline-offset-4">
-            <a href="#" className="hover:text-retro-primary">Twitter</a>
-            <a href="#" className="hover:text-retro-primary">GitHub</a>
-            <a href="#" className="hover:text-retro-primary">Discord</a>
+          <div className="text-2xl font-black flex items-center gap-2">
+            <div className="w-6 h-6 bg-retro-primary border-2 border-black"></div>
+            SCRIBE.AI
+          </div>
+          <div className="flex gap-6 font-bold">
+            <a href="https://x.com/utkarshhhhhhh26" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:text-retro-primary hover:underline decoration-4 underline-offset-4 transition-all">
+                <Twitter className="w-5 h-5" /> Twitter
+            </a>
+            <a href="https://github.com/utk2602" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:text-retro-primary hover:underline decoration-4 underline-offset-4 transition-all">
+                <Github className="w-5 h-5" /> GitHub
+            </a>
           </div>
           <p className="font-bold text-gray-500">© 2025 SCRIBE.AI</p>
         </div>
@@ -249,12 +282,24 @@ function FeatureCard({
         {icon}
       </div>
       <h3 className="text-2xl font-black mb-2 uppercase">{title}</h3>
-      <p className="text-gray-600 dark:text-gray-400 font-medium leading-relaxed flex-1">{description}</p>
+      <p className="text-gray-600 dark:text-gray-400 font-medium leading-relaxed flex-1">
+        {description}
+      </p>
     </div>
   );
 }
 
-function TestimonialCard({ quote, author, role, color }: { quote: string; author: string; role: string; color: string }) {
+function TestimonialCard({
+  quote,
+  author,
+  role,
+  color,
+}: {
+  quote: string;
+  author: string;
+  role: string;
+  color: string;
+}) {
   return (
     <div className="bg-white dark:bg-gray-900 border-4 border-black dark:border-white p-6 shadow-retro relative">
       <div className={`absolute -top-4 -left-4 w-8 h-8 ${color} border-4 border-black`}></div>
@@ -272,16 +317,33 @@ function TestimonialCard({ quote, author, role, color }: { quote: string; author
   );
 }
 
-function PricingCard({ title, price, features, color, highlighted = false }: { title: string; price: string; features: string[]; color: string; highlighted?: boolean }) {
+function PricingCard({
+  title,
+  price,
+  features,
+  color,
+  highlighted = false,
+}: {
+  title: string;
+  price: string;
+  features: string[];
+  color: string;
+  highlighted?: boolean;
+}) {
   return (
-    <div className={`${color} border-4 border-black dark:border-white p-8 shadow-retro flex flex-col ${highlighted ? 'transform scale-105 z-10' : ''}`}>
+    <div
+      className={`${color} border-4 border-black dark:border-white p-8 shadow-retro flex flex-col ${highlighted ? "transform scale-105 z-10" : ""}`}
+    >
       {highlighted && (
         <div className="bg-black text-white text-center font-bold py-1 mb-4 uppercase text-sm">
           Most Popular
         </div>
       )}
       <h3 className="text-2xl font-black uppercase mb-2">{title}</h3>
-      <div className="text-5xl font-black mb-8">{price}<span className="text-lg font-normal text-gray-500">/mo</span></div>
+      <div className="text-5xl font-black mb-8">
+        {price}
+        <span className="text-lg font-normal text-gray-500">/mo</span>
+      </div>
       <ul className="space-y-4 mb-8 flex-1">
         {features.map((feature) => (
           <li key={feature} className="flex items-center gap-2 font-bold">
@@ -298,15 +360,15 @@ function PricingCard({ title, price, features, color, highlighted = false }: { t
 
 function FAQItem({ question, answer }: { question: string; answer: string }) {
   const [isOpen, setIsOpen] = useState(false);
-  
+
   return (
     <div className="border-4 border-black dark:border-white bg-white dark:bg-gray-900 shadow-retro">
-      <button 
+      <button
         onClick={() => setIsOpen(!isOpen)}
         className="w-full p-4 flex justify-between items-center font-black text-lg text-left hover:bg-gray-50 dark:hover:bg-gray-800"
       >
         {question}
-        <ChevronDown className={`w-6 h-6 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`w-6 h-6 transition-transform ${isOpen ? "rotate-180" : ""}`} />
       </button>
       {isOpen && (
         <div className="p-4 pt-0 border-t-2 border-black dark:border-gray-700 font-medium text-gray-600 dark:text-gray-300">
@@ -315,4 +377,13 @@ function FAQItem({ question, answer }: { question: string; answer: string }) {
       )}
     </div>
   );
+}
+
+function StatItem({ label, value }: { label: string; value: string }) {
+    return (
+        <div className="text-center">
+            <div className="text-3xl md:text-4xl font-black mb-1">{value}</div>
+            <div className="text-xs md:text-sm font-bold text-gray-500 uppercase tracking-wider">{label}</div>
+        </div>
+    )
 }
