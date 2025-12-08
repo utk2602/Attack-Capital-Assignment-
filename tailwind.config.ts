@@ -39,11 +39,16 @@ export default {
       },
       animation: {
         marquee: "marquee 25s linear infinite",
+        blink: "blink 1s step-end infinite",
       },
       keyframes: {
         marquee: {
           "0%": { transform: "translateX(0%)" },
           "100%": { transform: "translateX(-100%)" },
+        },
+        blink: {
+          "0%, 100%": { opacity: "1" },
+          "50%": { opacity: "0" },
         },
       },
     },
