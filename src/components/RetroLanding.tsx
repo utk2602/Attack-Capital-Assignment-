@@ -2,7 +2,19 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Mic, FileText, Zap, Shield, Check, Star, ChevronDown, ArrowRight, Github, Twitter, Activity } from "lucide-react";
+import {
+  Mic,
+  FileText,
+  Zap,
+  Shield,
+  Check,
+  Star,
+  ChevronDown,
+  ArrowRight,
+  Github,
+  Twitter,
+  Activity,
+} from "lucide-react";
 import { useState, useEffect } from "react";
 
 export function RetroLanding() {
@@ -61,8 +73,9 @@ export function RetroLanding() {
           </h1>
 
           <div className="h-24 flex items-center justify-center">
-             <p className="text-xl md:text-2xl font-bold text-gray-800 dark:text-gray-300 bg-white dark:bg-gray-900 border-4 border-black dark:border-white p-6 shadow-retro max-w-2xl mx-auto transform rotate-1 hover:rotate-0 transition-transform duration-300">
-              {text}<span className="animate-blink">_</span>
+            <p className="text-xl md:text-2xl font-bold text-gray-800 dark:text-gray-300 bg-white dark:bg-gray-900 border-4 border-black dark:border-white p-6 shadow-retro max-w-2xl mx-auto transform rotate-1 hover:rotate-0 transition-transform duration-300">
+              {text}
+              <span className="animate-blink">_</span>
               <span className="block mt-2 text-retro-primary text-lg">No fluff. Just text.</span>
             </p>
           </div>
@@ -85,12 +98,12 @@ export function RetroLanding() {
 
         {/* Live Stats / Social Proof Replacement */}
         <div className="w-full max-w-6xl px-4 mb-24">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 border-4 border-black dark:border-white bg-white dark:bg-gray-900 p-8 shadow-retro">
-                <StatItem label="Active Users" value="12,403" />
-                <StatItem label="Hours Transcribed" value="84,291" />
-                <StatItem label="Accuracy" value="99.8%" />
-                <StatItem label="Uptime" value="99.99%" />
-            </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 border-4 border-black dark:border-white bg-white dark:bg-gray-900 p-8 shadow-retro">
+            <StatItem label="Active Users" value="12,403" />
+            <StatItem label="Hours Transcribed" value="84,291" />
+            <StatItem label="Accuracy" value="99.8%" />
+            <StatItem label="Uptime" value="99.99%" />
+          </div>
         </div>
 
         {/* Marquee */}
@@ -249,11 +262,21 @@ export function RetroLanding() {
             SCRIBE.AI
           </div>
           <div className="flex gap-6 font-bold">
-            <a href="https://x.com/utkarshhhhhhh26" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:text-retro-primary hover:underline decoration-4 underline-offset-4 transition-all">
-                <Twitter className="w-5 h-5" /> Twitter
+            <a
+              href="https://x.com/utkarshhhhhhh26"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 hover:text-retro-primary hover:underline decoration-4 underline-offset-4 transition-all"
+            >
+              <Twitter className="w-5 h-5" /> Twitter
             </a>
-            <a href="https://github.com/utk2602" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:text-retro-primary hover:underline decoration-4 underline-offset-4 transition-all">
-                <Github className="w-5 h-5" /> GitHub
+            <a
+              href="https://github.com/utk2602"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 hover:text-retro-primary hover:underline decoration-4 underline-offset-4 transition-all"
+            >
+              <Github className="w-5 h-5" /> GitHub
             </a>
           </div>
           <p className="font-bold text-gray-500">© 2025 SCRIBE.AI</p>
@@ -380,10 +403,12 @@ function FAQItem({ question, answer }: { question: string; answer: string }) {
 }
 
 function StatItem({ label, value }: { label: string; value: string }) {
-    return (
-        <div className="text-center">
-            <div className="text-3xl md:text-4xl font-black mb-1">{value}</div>
-            <div className="text-xs md:text-sm font-bold text-gray-500 uppercase tracking-wider">{label}</div>
-        </div>
-    )
+  return (
+    <div className="text-center">
+      <div className="text-3xl md:text-4xl font-black mb-1">{value}</div>
+      <div className="text-xs md:text-sm font-bold text-gray-500 uppercase tracking-wider">
+        {label}
+      </div>
+    </div>
+  );
 }
